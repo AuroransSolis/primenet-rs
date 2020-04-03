@@ -153,13 +153,13 @@ def primenet_fetch(num_to_get):
     #    5                        ECM for first factor on Mersenne numbers
     #    6                        ECM on Fermat numbers
     #    8                        ECM on mersenne cofactors
-    # *100    SmallestAvail        Smallest available first-time tests
-    # *101    DoubleCheck            Double-checking
-    # *102    WorldRecord            World record primality tests
-    # *104    100Mdigit            100M digit number to LL test (not recommended)
+    # *100    SmallestAvail       Smallest available first-time tests
+    # *101    DoubleCheck         Double-checking
+    # *102    WorldRecord         World record primality tests
+    # *104    100Mdigit           100M digit number to LL test (not recommended)
     # *150    SmallestAvailPRP    First time PRP tests (Gerbicz)
-    # *151    DoubleCheckPRP        Doublecheck PRP tests (Gerbicz)
-    # *152    WorldRecordPRP        World record sized numbers to PRP test (Gerbicz)
+    # *151    DoubleCheckPRP      Doublecheck PRP tests (Gerbicz)
+    # *152    WorldRecordPRP      World record sized numbers to PRP test (Gerbicz)
     # *153    100MdigitPRP        100M digit number to PRP test (Gerbicz)
     #  160                        PRP on Mersenne cofactors
     #  161                        PRP double-checks on Mersenne cofactors
