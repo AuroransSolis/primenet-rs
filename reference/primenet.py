@@ -61,306 +61,306 @@ primenet_baseurl = b"https://www.mersenne.org/"
 primenet_login = False
 
 def ass_generate(assignment):
-	output = ""
-	for key in assignment:
-		output += key + "=" + assignment[key] + "&"
-	# return output.rstrip("&")
-	return output
+    output = ""
+    for key in assignment:
+        output += key + "=" + assignment[key] + "&"
+    # return output.rstrip("&")
+    return output
 
 def debug_print(text):
-	if options.debug:
-		print(progname + ": " + text)
-		sys.stdout.flush()
+    if options.debug:
+        print(progname + ": " + text)
+        sys.stdout.flush()
 
 def greplike(pattern, l):
-	output = []
-	for line in l:
-		s = re.search(r"(" + pattern + ")$", line)
-		if s:
-			output.append(s.groups()[0])
-	return output
+    output = []
+    for line in l:
+        s = re.search(r"(" + pattern + ")$", line)
+        if s:
+            output.append(s.groups()[0])
+    return output
 
 def num_to_fetch(l, targetsize):
-	num_existing = len(l)
-	num_needed = targetsize - num_existing
-	return max(num_needed, 0)
+    num_existing = len(l)
+    num_needed = targetsize - num_existing
+    return max(num_needed, 0)
 
 def readonly_file(filename):
-	# Used when there is no intention to write the file back, so don't
-	# check or write lockfiles. Also returns a single string, no list.
-	if os.path.exists(filename):
-		File = open(filename, "r")
-		contents = File.read()
-		File.close()
-	else:
-		contents = ""
-	return contents
+    # Used when there is no intention to write the file back, so don't
+    # check or write lockfiles. Also returns a single string, no list.
+    if os.path.exists(filename):
+        File = open(filename, "r")
+        contents = File.read()
+        File.close()
+    else:
+        contents = ""
+    return contents
 
 def read_list_file(filename):
-	# Used when we plan to write the new version, so use locking
-	lockfile = filename + ".lck"
-	try:
-		fd = os.open(lockfile, os.O_CREAT | os.O_EXCL)
-		os.close(fd)
-		if os.path.exists(filename):
-			File = open(filename, "r")
-			contents = File.readlines()
-			File.close()
-			return map(lambda x: x.rstrip(), contents)
-		else:
-			return []
-	# This python2-style exception decl gives a syntax error in python3:
-	# except OSError, e:
-	# https://stackoverflow.com/questions/11285313/try-except-as-error-in-python-2-5-python-3-x
-	# gives the fugly but portable-between-both-python2-and-python3 syntactical workaround:
-	except OSError:
-		_, e, _ = sys.exc_info()
-		if e.errno == 17:
-			return "locked"
-		else:
-			raise
+    # Used when we plan to write the new version, so use locking
+    lockfile = filename + ".lck"
+    try:
+        fd = os.open(lockfile, os.O_CREAT | os.O_EXCL)
+        os.close(fd)
+        if os.path.exists(filename):
+            File = open(filename, "r")
+            contents = File.readlines()
+            File.close()
+            return map(lambda x: x.rstrip(), contents)
+        else:
+            return []
+    # This python2-style exception decl gives a syntax error in python3:
+    # except OSError, e:
+    # https://stackoverflow.com/questions/11285313/try-except-as-error-in-python-2-5-python-3-x
+    # gives the fugly but portable-between-both-python2-and-python3 syntactical workaround:
+    except OSError:
+        _, e, _ = sys.exc_info()
+        if e.errno == 17:
+            return "locked"
+        else:
+            raise
 
 def write_list_file(filename, l, mode="w"):
-	# Assume we put the lock in upon reading the file, so we can
-	# safely write the file and remove the lock
-	lockfile = filename + ".lck"
-	# A "null append" is meaningful, as we can call this to clear the
-	# lockfile. In this case the main file need not be touched.
-	if mode != "a" or len(l) > 0:
-		content = "\n".join(l) + "\n"
-		File = open(filename, mode)
-		File.write(content)
-		File.close()
-	os.remove(lockfile)
+    # Assume we put the lock in upon reading the file, so we can
+    # safely write the file and remove the lock
+    lockfile = filename + ".lck"
+    # A "null append" is meaningful, as we can call this to clear the
+    # lockfile. In this case the main file need not be touched.
+    if mode != "a" or len(l) > 0:
+        content = "\n".join(l) + "\n"
+        File = open(filename, mode)
+        File.write(content)
+        File.close()
+    os.remove(lockfile)
 
 def unlock_file(filename):
-	lockfile = filename + ".lck"
-	os.remove(lockfile)
+    lockfile = filename + ".lck"
+    os.remove(lockfile)
 
 def primenet_fetch(num_to_get):
-	if not primenet_login:
-		return []
-	# As of early 2018, here is the full list of assignment-type codes supported by the Primenet server; Mlucas
-	# v18 (and thus this script) supports only the subset of these indicated by an asterisk in the left column.
-	# Supported assignment types may be specified via either their PrimeNet number code or the listed Mnemonic:
-	#			Worktype:
-	# Code		Mnemonic			Description
-	# ----	-----------------	-----------------------
-	#    0						Whatever makes the most sense
-	#    1						Trial factoring to low limits
-	#    2						Trial factoring
-	#    4						P-1 factoring
-	#    5						ECM for first factor on Mersenne numbers
-	#    6						ECM on Fermat numbers
-	#    8						ECM on mersenne cofactors
-	# *100	SmallestAvail		Smallest available first-time tests
-	# *101	DoubleCheck			Double-checking
-	# *102	WorldRecord			World record primality tests
-	# *104	100Mdigit			100M digit number to LL test (not recommended)
-	# *150	SmallestAvailPRP	First time PRP tests (Gerbicz)
-	# *151	DoubleCheckPRP		Doublecheck PRP tests (Gerbicz)
-	# *152	WorldRecordPRP		World record sized numbers to PRP test (Gerbicz)
-	# *153	100MdigitPRP		100M digit number to PRP test (Gerbicz)
-	#  160						PRP on Mersenne cofactors
-	#  161						PRP double-checks on Mersenne cofactors
+    if not primenet_login:
+        return []
+    # As of early 2018, here is the full list of assignment-type codes supported by the Primenet server; Mlucas
+    # v18 (and thus this script) supports only the subset of these indicated by an asterisk in the left column.
+    # Supported assignment types may be specified via either their PrimeNet number code or the listed Mnemonic:
+    #            Worktype:
+    # Code        Mnemonic            Description
+    # ----    -----------------    -----------------------
+    #    0                        Whatever makes the most sense
+    #    1                        Trial factoring to low limits
+    #    2                        Trial factoring
+    #    4                        P-1 factoring
+    #    5                        ECM for first factor on Mersenne numbers
+    #    6                        ECM on Fermat numbers
+    #    8                        ECM on mersenne cofactors
+    # *100    SmallestAvail        Smallest available first-time tests
+    # *101    DoubleCheck            Double-checking
+    # *102    WorldRecord            World record primality tests
+    # *104    100Mdigit            100M digit number to LL test (not recommended)
+    # *150    SmallestAvailPRP    First time PRP tests (Gerbicz)
+    # *151    DoubleCheckPRP        Doublecheck PRP tests (Gerbicz)
+    # *152    WorldRecordPRP        World record sized numbers to PRP test (Gerbicz)
+    # *153    100MdigitPRP        100M digit number to PRP test (Gerbicz)
+    #  160                        PRP on Mersenne cofactors
+    #  161                        PRP double-checks on Mersenne cofactors
 
-	# Convert mnemonic-form worktypes to corresponding numeric value, check worktype value vs supported ones:
-	if options.worktype == "SmallestAvail":
-		options.worktype = "100"
-	elif options.worktype == "DoubleCheck":
-		options.worktype = "101"
-	elif options.worktype == "WorldRecord":
-		options.worktype = "102"
-	elif options.worktype == "100Mdigit":
-		options.worktype = "104"
-	if options.worktype == "SmallestAvailPRP":
-		options.worktype = "150"
-	elif options.worktype == "DoubleCheckPRP":
-		options.worktype = "151"
-	elif options.worktype == "WorldRecordPRP":
-		options.worktype = "152"
-	elif options.worktype == "100MdigitPRP":
-		options.worktype = "153"
-	supported = set(['100','101','102','104','150','151','152','153'])
-	if not options.worktype in supported:
-		debug_print("Unsupported/unrecognized worktype = " + options.worktype)
-		return []
-	assignment = {"cores": "1",
-		"num_to_get": str(num_to_get),
-		"pref": options.worktype,
-		"exp_lo": "",
-		"exp_hi": "",
-	}
-	try:
-		openurl = primenet_baseurl + "manual_assignment/?" + ass_generate(assignment) + "B1=Get+Assignments"
-		# debug_print("Fetching work via URL = "+openurl)
-		r = primenet.open(openurl)
-		return greplike(workpattern, r.readlines())
-	except URLError:
-		debug_print("URL open error at primenet_fetch")
-		return []
+    # Convert mnemonic-form worktypes to corresponding numeric value, check worktype value vs supported ones:
+    if options.worktype == "SmallestAvail":
+        options.worktype = "100"
+    elif options.worktype == "DoubleCheck":
+        options.worktype = "101"
+    elif options.worktype == "WorldRecord":
+        options.worktype = "102"
+    elif options.worktype == "100Mdigit":
+        options.worktype = "104"
+    if options.worktype == "SmallestAvailPRP":
+        options.worktype = "150"
+    elif options.worktype == "DoubleCheckPRP":
+        options.worktype = "151"
+    elif options.worktype == "WorldRecordPRP":
+        options.worktype = "152"
+    elif options.worktype == "100MdigitPRP":
+        options.worktype = "153"
+    supported = set(['100','101','102','104','150','151','152','153'])
+    if not options.worktype in supported:
+        debug_print("Unsupported/unrecognized worktype = " + options.worktype)
+        return []
+    assignment = {"cores": "1",
+        "num_to_get": str(num_to_get),
+        "pref": options.worktype,
+        "exp_lo": "",
+        "exp_hi": "",
+    }
+    try:
+        openurl = primenet_baseurl + "manual_assignment/?" + ass_generate(assignment) + "B1=Get+Assignments"
+        # debug_print("Fetching work via URL = "+openurl)
+        r = primenet.open(openurl)
+        return greplike(workpattern, r.readlines())
+    except URLError:
+        debug_print("URL open error at primenet_fetch")
+        return []
 
 def get_assignment():
-	w = read_list_file(workfile)
-	if w == "locked":
-		return "locked"
+    w = read_list_file(workfile)
+    if w == "locked":
+        return "locked"
 
-	tasks = greplike(workpattern, w)
-	num_to_get = num_to_fetch(tasks, int(options.num_cache))
+    tasks = greplike(workpattern, w)
+    num_to_get = num_to_fetch(tasks, int(options.num_cache))
 
-	if num_to_get < 1:
-		debug_print(workfile + " already has >= " + str(len(tasks)) + " entries, not getting new work")
-		# Must write something anyway to clear the lockfile
-		new_tasks = []
-	else:
-		debug_print("Fetching " + str(num_to_get) + " assignments")
-		new_tasks = primenet_fetch(num_to_get)
+    if num_to_get < 1:
+        debug_print(workfile + " already has >= " + str(len(tasks)) + " entries, not getting new work")
+        # Must write something anyway to clear the lockfile
+        new_tasks = []
+    else:
+        debug_print("Fetching " + str(num_to_get) + " assignments")
+        new_tasks = primenet_fetch(num_to_get)
 
-	num_fetched = len(new_tasks)
-	# debug_print("Fetched " + str() + " new_tasks: " + str(new_tasks))
-	write_list_file(workfile, new_tasks, "a")
-	if num_fetched < num_to_get:
-		debug_print("Error: Failed to obtain requested number of new assignments, " + str(num_to_get) + " requested, " + str(num_fetched) + " successfully retrieved")
+    num_fetched = len(new_tasks)
+    # debug_print("Fetched " + str() + " new_tasks: " + str(new_tasks))
+    write_list_file(workfile, new_tasks, "a")
+    if num_fetched < num_to_get:
+        debug_print("Error: Failed to obtain requested number of new assignments, " + str(num_to_get) + " requested, " + str(num_fetched) + " successfully retrieved")
 
 def mersenne_find(line, complete=True):
-	# Pre-v19 old-style HRF-formatted result used "Program:..."; starting w/v19 JSON-formatted result uses "program",
-	# so take the intersection of those to regexp strings:
-	return re.search(r"rogram", line)
+    # Pre-v19 old-style HRF-formatted result used "Program:..."; starting w/v19 JSON-formatted result uses "program",
+    # so take the intersection of those to regexp strings:
+    return re.search(r"rogram", line)
 
 def update_progress():
-	w = read_list_file(workfile)
-	unlock_file(workfile)
+    w = read_list_file(workfile)
+    unlock_file(workfile)
 
-	tasks = greplike(workpattern, w)
-	found = re.search('=(.+?),', tasks[0])
-	if found:
-		assignment_id = found.group(1)
-		# debug_print("update_progress: assignment_id = " + assignment_id)
-	else:
-		debug_print("update_progress: Unable to extract valid Primenet assignment ID from first entry in " + workfile + ": " + tasks[0])
-		return []
-	found = re.search(',(.+?),', tasks[0])
-	if found:
-		p = found.group(1)
-		statfile = 'p' + p + '.stat'
-		w = read_list_file(statfile)
-		unlock_file(statfile)
-		# Extract iteration from most-recent statfile entry:
-		found = re.search('= (.+?) ', w[len(w)-1])
-		if found:
-			iter = found.group(1)
-			# debug_print("Iteration = " + iter)
-			percent = str(100*float(iter)/float(p))
-			percent = percent[0:4]
-			# debug_print("% done = " + percent)
-		else:
-			debug_print("update_progress: Unable to find .stat file corresponding to first entry in " + workfile + ": " + tasks[0])
-			return []
-	else:
-		debug_print("update_progress: Unable to extract valid exponent substring from first entry in " + workfile + ": " + tasks[0])
-		return []
-	# Found eligible current-assignment in workfile and a matching p*.stat file with last-entry containing "Iteration = ":
-	mach_id = ""
-	# debug_print("len(mach_id) = " + str(len(mach_id)))
-	w = read_list_file(localfile)
-	unlock_file(localfile)
-	# debug_print("len(localfile) = " + str(len(w)))
-	for i in range(len(w)):
-		found = re.search('mach_id', w[i])
-		if found:
-			j = len(w[i])
-			# Assume primenet-assigned guid is 32 chars, at end of line:
-			mach_id = w[i][j-32:j]
-			break
-	# debug_print("len(mach_id) = " + str(len(mach_id)))
-	if len(mach_id) == 0:
-		debug_print("update_progress: Unable to extract valid mach_id entry from " + localfile)
-		return []
+    tasks = greplike(workpattern, w)
+    found = re.search('=(.+?),', tasks[0])
+    if found:
+        assignment_id = found.group(1)
+        # debug_print("update_progress: assignment_id = " + assignment_id)
+    else:
+        debug_print("update_progress: Unable to extract valid Primenet assignment ID from first entry in " + workfile + ": " + tasks[0])
+        return []
+    found = re.search(',(.+?),', tasks[0])
+    if found:
+        p = found.group(1)
+        statfile = 'p' + p + '.stat'
+        w = read_list_file(statfile)
+        unlock_file(statfile)
+        # Extract iteration from most-recent statfile entry:
+        found = re.search('= (.+?) ', w[len(w)-1])
+        if found:
+            iter = found.group(1)
+            # debug_print("Iteration = " + iter)
+            percent = str(100*float(iter)/float(p))
+            percent = percent[0:4]
+            # debug_print("% done = " + percent)
+        else:
+            debug_print("update_progress: Unable to find .stat file corresponding to first entry in " + workfile + ": " + tasks[0])
+            return []
+    else:
+        debug_print("update_progress: Unable to extract valid exponent substring from first entry in " + workfile + ": " + tasks[0])
+        return []
+    # Found eligible current-assignment in workfile and a matching p*.stat file with last-entry containing "Iteration = ":
+    mach_id = ""
+    # debug_print("len(mach_id) = " + str(len(mach_id)))
+    w = read_list_file(localfile)
+    unlock_file(localfile)
+    # debug_print("len(localfile) = " + str(len(w)))
+    for i in range(len(w)):
+        found = re.search('mach_id', w[i])
+        if found:
+            j = len(w[i])
+            # Assume primenet-assigned guid is 32 chars, at end of line:
+            mach_id = w[i][j-32:j]
+            break
+    # debug_print("len(mach_id) = " + str(len(mach_id)))
+    if len(mach_id) == 0:
+        debug_print("update_progress: Unable to extract valid mach_id entry from " + localfile)
+        return []
 
-	# Assignment Progress fields:
-	# g= the machine's GUID (32 chars, assigned by Primenet on 1st-contact from a given machine, stored in 'mach_id = ' entry of local.ini file of rundir)
-	# k= the assignment ID (32 chars, follows '=' in Primenet-geerated workfile entries)
-	# stage= LL in this case, although an LL test may be doing TF or P-1 work first so it's possible to be something besides LL
-	# c= the worker thread of the machine ... always sets = 1 for now, elaborate later is desired
-	# p= progress in %-done, 4-char format = xy.z
-	# d= when the client is expected to check in again (in seconds ... 86400 = 24 hours)
-	# e= the ETA of completion - I just set it to 86400/24 hours as an example
-	#
-	ap_url = primenet_v5_burl + "&t=ap&g=" + mach_id + "&k=" + assignment_id + "&stage=LL&c=1&p=" + percent + "&d=86400&e=86400"
-	debug_print("ap_url: " + ap_url)
-	try:
-		r = primenet.open(ap_url)
-		page = r.readlines();
-		# debug_print("update_progress returns: " + str(len(page)) + " lines:")
-		for i in range(len(page)):
-			# debug_print("line[" + str(i) + "] = " + page[i])
-			found = re.search('SUCCESS', page[i])
-			if found:
-				# debug_print("Current-assignment [p = " + p + "] update_progress was successful.")
-				return []
-		# debug_print("Current-assignment [p = " + p + "] update_progress may have failed; return value:")
-		# for i in range(len(page)):
-		#	debug_print("line[" + str(i) + "] = " + page[i])
-	except URLError:
-		debug_print("update_progress: URL open error")
+    # Assignment Progress fields:
+    # g= the machine's GUID (32 chars, assigned by Primenet on 1st-contact from a given machine, stored in 'mach_id = ' entry of local.ini file of rundir)
+    # k= the assignment ID (32 chars, follows '=' in Primenet-geerated workfile entries)
+    # stage= LL in this case, although an LL test may be doing TF or P-1 work first so it's possible to be something besides LL
+    # c= the worker thread of the machine ... always sets = 1 for now, elaborate later is desired
+    # p= progress in %-done, 4-char format = xy.z
+    # d= when the client is expected to check in again (in seconds ... 86400 = 24 hours)
+    # e= the ETA of completion - I just set it to 86400/24 hours as an example
+    #
+    ap_url = primenet_v5_burl + "&t=ap&g=" + mach_id + "&k=" + assignment_id + "&stage=LL&c=1&p=" + percent + "&d=86400&e=86400"
+    debug_print("ap_url: " + ap_url)
+    try:
+        r = primenet.open(ap_url)
+        page = r.readlines();
+        # debug_print("update_progress returns: " + str(len(page)) + " lines:")
+        for i in range(len(page)):
+            # debug_print("line[" + str(i) + "] = " + page[i])
+            found = re.search('SUCCESS', page[i])
+            if found:
+                # debug_print("Current-assignment [p = " + p + "] update_progress was successful.")
+                return []
+        # debug_print("Current-assignment [p = " + p + "] update_progress may have failed; return value:")
+        # for i in range(len(page)):
+        #    debug_print("line[" + str(i) + "] = " + page[i])
+    except URLError:
+        debug_print("update_progress: URL open error")
 
-	return []
+    return []
 
 def submit_work():
-	# Only submit completed work, i.e. the exponent must not exist in worktodo file any more
-	files = [resultsfile, sentfile]
-	rs = map(read_list_file, files)
-	#
-	# EWM: Mark Rose comments:
-	# This code is calling the read_list_file function for every item in the files list. It's putting the
-	# results of the function for the first file, resultsfile, in the first position in the array, rs[0].
-	# Inside read_list_file, it's opening the file, calling readlines to get the contents of it into an array,
-	# then calling the rstrip function on every line to remove trailing whitespace. It then returns the array.
-	#
-	# EWM: Note that read_list_file does not need the file(s) to exist - nonexistent files simply yield 0-length rs-array entries.
+    # Only submit completed work, i.e. the exponent must not exist in worktodo file any more
+    files = [resultsfile, sentfile]
+    rs = map(read_list_file, files)
+    #
+    # EWM: Mark Rose comments:
+    # This code is calling the read_list_file function for every item in the files list. It's putting the
+    # results of the function for the first file, resultsfile, in the first position in the array, rs[0].
+    # Inside read_list_file, it's opening the file, calling readlines to get the contents of it into an array,
+    # then calling the rstrip function on every line to remove trailing whitespace. It then returns the array.
+    #
+    # EWM: Note that read_list_file does not need the file(s) to exist - nonexistent files simply yield 0-length rs-array entries.
 
-	if "locked" in rs:
-		# Remove the lock in case one of these was unlocked at start
-		for i in range(len(files)):
-			if rs[i] != "locked":
-				debug_print("Calling write_list_file() for" + files[i])
-				write_list_file(files[i], [], "a")
-		return "locked"
+    if "locked" in rs:
+        # Remove the lock in case one of these was unlocked at start
+        for i in range(len(files)):
+            if rs[i] != "locked":
+                debug_print("Calling write_list_file() for" + files[i])
+                write_list_file(files[i], [], "a")
+        return "locked"
 
-	results = rs[0]
-	results = filter(mersenne_find, results)	# remove nonsubmittable lines from list of possibles
-	results_send = [line for line in results if line not in rs[1]]	# if a line was previously submitted, discard
-	results_send = list(set(results_send))	# In case resultsfile contained duplicate lines for some reason
-	debug_print("New-results has " + str(len(results_send)) + " entries.")
+    results = rs[0]
+    results = filter(mersenne_find, results)    # remove nonsubmittable lines from list of possibles
+    results_send = [line for line in results if line not in rs[1]]    # if a line was previously submitted, discard
+    results_send = list(set(results_send))    # In case resultsfile contained duplicate lines for some reason
+    debug_print("New-results has " + str(len(results_send)) + " entries.")
 
-	# Only for new results, to be appended to results_sent
-	sent = []
+    # Only for new results, to be appended to results_sent
+    sent = []
 
-	if len(results_send) == 0:
-		debug_print("No complete results found to send.")
-		# Don't just return here, files are still locked...
-	else:
-		# EWM: Switch to one-result-line-at-a-time submission to support error-message-on-submit handling:
-		for sendline in results_send:
-			debug_print("Submitting\n" + sendline)
-			try:
-				post_data = urlencode({"data": sendline})
-				r = primenet.open(primenet_baseurl + "manual_result/default.php", post_data)
-				res = r.read()
-				if "Error" in res:
-					ibeg = res.find("Error")
-					iend = res.find("</div>", ibeg)
-					print("Submission failed: '" + res[ibeg:iend] + "'")
-				elif "Accepted" in res:
-					sent += sendline
-				else:
-					print("Submission of results line '" + sendline + "' failed for reasons unknown - please try manual resubmission.")
-			except URLError:
-				debug_print("URL open error")
+    if len(results_send) == 0:
+        debug_print("No complete results found to send.")
+        # Don't just return here, files are still locked...
+    else:
+        # EWM: Switch to one-result-line-at-a-time submission to support error-message-on-submit handling:
+        for sendline in results_send:
+            debug_print("Submitting\n" + sendline)
+            try:
+                post_data = urlencode({"data": sendline})
+                r = primenet.open(primenet_baseurl + "manual_result/default.php", post_data)
+                res = r.read()
+                if "Error" in res:
+                    ibeg = res.find("Error")
+                    iend = res.find("</div>", ibeg)
+                    print("Submission failed: '" + res[ibeg:iend] + "'")
+                elif "Accepted" in res:
+                    sent += sendline
+                else:
+                    print("Submission of results line '" + sendline + "' failed for reasons unknown - please try manual resubmission.")
+            except URLError:
+                debug_print("URL open error")
 
-	write_list_file(sentfile, results_send, "a")	# EWM: Append entire results_send rather than just sent to avoid resubmitting
-													# bad results (e.g. previously-submitted duplicates) every time the script executes.
-	unlock_file(resultsfile)	# EWM: don't write anything to resultsfile, but still need to remove lock placed on it by read_list_file
+    write_list_file(sentfile, results_send, "a")    # EWM: Append entire results_send rather than just sent to avoid resubmitting
+                                                    # bad results (e.g. previously-submitted duplicates) every time the script executes.
+    unlock_file(resultsfile)    # EWM: don't write anything to resultsfile, but still need to remove lock placed on it by read_list_file
 
 parser = OptionParser()
 
@@ -393,19 +393,19 @@ sentfile = os.path.join(workdir, "results_sent.txt")
 # Good refs re. Python regexp: https://www.geeksforgeeks.org/pattern-matching-python-regex/, https://www.python-course.eu/re.php
 # pre-v19 only handled LL-test assignments starting with either DoubleCheck or Test, followed by =, and ending with 3 ,number pairs:
 #
-#	workpattern = r"(DoubleCheck|Test)=.*(,[0-9]+){3}"
+#    workpattern = r"(DoubleCheck|Test)=.*(,[0-9]+){3}"
 #
 # v19 we add PRP-test support - both first-time and DC of these start with PRP=, the DCs tack on 2 more ,number pairs representing
 # the PRP base to use and the PRP test-tyoe (the latter is a bit complex to explain here). Sample of the 4 worktypes supported by v19:
 #
-#	Test=7A30B8B6C0FC79C534A271D9561F7DCC,89459323,76,1
-#	DoubleCheck=92458E009609BD9E10577F83C2E9639C,50549549,73,1
-#	PRP=BC914675C81023F252E92CF034BEFF6C,1,2,96364649,-1,76,0
-#	PRP=51D650F0A3566D6C256B1679C178163E,1,2,81348457,-1,75,0,3,1
+#    Test=7A30B8B6C0FC79C534A271D9561F7DCC,89459323,76,1
+#    DoubleCheck=92458E009609BD9E10577F83C2E9639C,50549549,73,1
+#    PRP=BC914675C81023F252E92CF034BEFF6C,1,2,96364649,-1,76,0
+#    PRP=51D650F0A3566D6C256B1679C178163E,1,2,81348457,-1,75,0,3,1
 #
 # and the obvious regexp pattern-modification is
 #
-#	workpattern = r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}"
+#    workpattern = r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}"
 #
 # Here is where we get to the kind of complication the late baseball-philosopher Yogi Berra captured via his aphorism,
 # "In theory, theory and practice are the same. In practice, they're different". Namely, while the above regexp pattern
@@ -415,19 +415,19 @@ sentfile = os.path.join(workdir, "results_sent.txt")
 # tiled to the end of the input line. Assignment # 3 above happens to have a negative number among the final 3, thus the
 # grep fails. This weird behavior is not reproducible running Python in console mode:
 #
-#	>>> import re
-#	>>> s1 = "DoubleCheck=92458E009609BD9E10577F83C2E9639C,50549549,73,1"
-#	>>> s2 = "Test=7A30B8B6C0FC79C534A271D9561F7DCC,89459323,76,1"
-#	>>> s3 = "PRP=BC914675C81023F252E92CF034BEFF6C,1,2,96364649,-1,76,0"
-#	>>> s4 = "PRP=51D650F0A3566D6C256B1679C178163E,1,2,81348457,-1,75,0,3,1"
-#	>>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s1)
-#	<_sre.SRE_Match object at 0x1004bd250>
-#	>>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s2)
-#	<_sre.SRE_Match object at 0x1004bd250>
-#	>>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s3)
-#	<_sre.SRE_Match object at 0x1004bd250>
-#	>>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s4)
-#	<_sre.SRE_Match object at 0x1004bd250>
+#    >>> import re
+#    >>> s1 = "DoubleCheck=92458E009609BD9E10577F83C2E9639C,50549549,73,1"
+#    >>> s2 = "Test=7A30B8B6C0FC79C534A271D9561F7DCC,89459323,76,1"
+#    >>> s3 = "PRP=BC914675C81023F252E92CF034BEFF6C,1,2,96364649,-1,76,0"
+#    >>> s4 = "PRP=51D650F0A3566D6C256B1679C178163E,1,2,81348457,-1,75,0,3,1"
+#    >>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s1)
+#    <_sre.SRE_Match object at 0x1004bd250>
+#    >>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s2)
+#    <_sre.SRE_Match object at 0x1004bd250>
+#    >>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s3)
+#    <_sre.SRE_Match object at 0x1004bd250>
+#    >>> print re.search(r"(DoubleCheck|Test|PRP)=.*(,[0-9]+){3}" , s4)
+#    <_sre.SRE_Match object at 0x1004bd250>
 #
 # Anyhow, based on that I modified the grep pattern to work around the weirdness, by appending .* to the pattern, thus
 # changing things to "look for 3 comma-separated nonnegative ints somewhere in the assignment, followed by anything",
@@ -444,37 +444,37 @@ primenet_cj = cookiejar.CookieJar()
 primenet = build_opener(HTTPCookieProcessor(primenet_cj))
 
 while True:
-	# Log in to primenet
-	try:
-		login_data = {"user_login": options.username,
-			"user_password": options.password,
-		}
+    # Log in to primenet
+    try:
+        login_data = {"user_login": options.username,
+            "user_password": options.password,
+        }
 
-		# This makes a POST instead of GET
-		try:
-			data = login_data.encode('ascii')	# More python3 hackage to properly encode text data as bytes
-		except AttributeError:
-			data = urlencode(login_data)
+        # This makes a POST instead of GET
+        try:
+            data = login_data.encode('ascii')    # More python3 hackage to properly encode text data as bytes
+        except AttributeError:
+            data = urlencode(login_data)
 
-		r = primenet.open(primenet_baseurl + b"default.php", data)
-		if not options.username + "<br>logged in" in r.read():
-			primenet_login = False
-			debug_print("Login failed.")
-		else:
-			primenet_login = True
-			#while update_progress() == "locked":
-			#	debug_print("Waiting for workfile access...")
-			#	sleep(2)
-			while submit_work() == "locked":
-				debug_print("Waiting for results file access...")
-				sleep(2)
-	except URLError:
-		debug_print("Primenet URL open error")
+        r = primenet.open(primenet_baseurl + b"default.php", data)
+        if not options.username + "<br>logged in" in r.read():
+            primenet_login = False
+            debug_print("Login failed.")
+        else:
+            primenet_login = True
+            #while update_progress() == "locked":
+            #    debug_print("Waiting for workfile access...")
+            #    sleep(2)
+            while submit_work() == "locked":
+                debug_print("Waiting for results file access...")
+                sleep(2)
+    except URLError:
+        debug_print("Primenet URL open error")
 
-	if primenet_login:
-		while get_assignment() == "locked":
-			debug_print("Waiting for worktodo.ini access...")
-			sleep(2)
-	if timeout <= 0:
-		break
-	sleep(timeout)
+    if primenet_login:
+        while get_assignment() == "locked":
+            debug_print("Waiting for worktodo.ini access...")
+            sleep(2)
+    if timeout <= 0:
+        break
+    sleep(timeout)
