@@ -3,11 +3,12 @@ use std::fs::{read_dir, File};
 use std::path::Path;
 
 pub fn directory_validator(s: String) -> Result<(), String> {
-    let path = Path::new(&if s.starts_with('.') {
+    let s = if s.starts_with('.') {
         format!("{}/{}", current_dir().unwrap().display(), s)
     } else {
         s
-    });
+    };
+    let path = Path::new(&s);
     if path.exists() {
         if path.is_dir() {
             // Check to make sure the user can see the contents of the directory
@@ -62,7 +63,7 @@ pub fn directory_validator(s: String) -> Result<(), String> {
 pub fn numeric_validator(s: String) -> Result<(), String> {
     if s.chars().all(|c| c.is_ascii_digit()) {
         s.parse::<usize>()
-            .map_ok(|_| ())
+            .map(|_| ())
             .map_err(|e| format!("Invalid number: '{}'. Details: {}", s, e))
     } else {
         Err(format!("Input '{}' is not all ASCII decimal digits.", s))
@@ -86,29 +87,13 @@ pub fn p95_username_validator(s: String) -> Result<(), String> {
     }
 }
 
-pub fn credentials_validator(s: String) -> Result<(), String> {
-    let parts = s.split(',').collect::<Vec<_>>();
-    if parts.len() == 1 {
-        Err(format!(
-            "Credentials pair missing comma. Expected format: foo,bar. Got: '{}'",
-            s
-        ))
-    } else if parts.len() == 2 {
-        username_validator(parts[0].to_string())
-    } else {
-        Err(format!(
-            "Too many parts to credentials. Expected format: foo,bar. Got: '{}'",
-            s
-        ))
-    }
-}
-
 pub fn file_validator(s: String) -> Result<(), String> {
-    let path = Path::new(&if s.starts_with('.') {
+    let s = if s.starts_with('.') {
         format!("{}/{}", current_dir().unwrap().display(), s)
     } else {
         s
-    });
+    };
+    let path = Path::new(&s);
     if path.exists() {
         if path.is_file() {
             match File::open(&path) {

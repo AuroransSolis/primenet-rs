@@ -595,17 +595,17 @@ fn request_from_args() -> Result<Options, String> {
             )
         } else {
             let username_path = matches.value_of("gpu72-username-file").unwrap();
-            let username_file = BufReader::new(File::open(username_path).unwrap());
+            let mut username_file = BufReader::new(File::open(username_path).unwrap());
             let mut username = String::new();
             username_file.read_to_string(&mut username);
             let password_path = matches.value_of("gpu72-password-file").unwrap();
-            let password_file = BufReader::new(File::open(password_path).unwrap());
+            let mut password_file = BufReader::new(File::open(password_path).unwrap());
             let mut password = String::new();
             password_file.read_to_string(&mut password);
             (username, password)
         };
         let fallback = matches.is_present("gpu72-fallback");
-        let p95_credentials = if fallback {
+        let primenet_credentials = if fallback {
             if matches.is_present("p95-userpass") {
                 Some((
                     matches.value_of("p95-username").unwrap().to_string(),
@@ -631,7 +631,7 @@ fn request_from_args() -> Result<Options, String> {
             .unwrap()
             .parse::<usize>()
             .unwrap();
-        let timeout = matches.value_of("timeout").parse::<usize>().unwrap();
+        let timeout = matches.value_of("timeout").unwrap().parse::<usize>().unwrap();
         let general_options = GeneralOptions {
             work_directory,
             num_cache,
@@ -680,7 +680,7 @@ fn request_from_args() -> Result<Options, String> {
                 Gpu72LLP1WorkOption::WhatMakesSense
             })
         } else {
-            Gpu72WorkType::DoubleCheckP1(matches.value_of("gpu72-double-check-p1").parse::<f32>())
+            Gpu72WorkType::DoubleCheckP1(matches.value_of("gpu72-double-check-p1").unwrap().parse::<f32>().unwrap())
         };
         Ok(Options::Gpu72(Gpu72Options {
             primenet_credentials,
@@ -690,7 +690,7 @@ fn request_from_args() -> Result<Options, String> {
             general_options,
         }))
     } else if matches.is_present("p95-credentials") {
-        // todo
+        Err("".to_string())
     } else {
         Err(
             "Missing minimum requirements: \n    \

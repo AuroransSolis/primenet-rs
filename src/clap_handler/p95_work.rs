@@ -8,22 +8,26 @@ pub enum PrimenetWorkType {
     LlDoubleCheck(PrimenetLLDCOption),
 }
 
+#[derive(Copy, Clone)]
 pub enum PrimenetTFOption {
     WhatMakesMostSense,
     FactoringLmh,
     FactoringTrialSieve,
 }
 
+#[derive(Copy, Clone)]
 pub enum PrimenetP1FOption {
     WhatMakesMostSense,
     FactoringP1Small,
 }
 
+#[derive(Copy, Clone)]
 pub enum PrimenetOP1FOption {
     WhatMakesMostSense,
     FactoringP1Large,
 }
 
+#[derive(Copy, Clone)]
 pub enum PrimenetEFOption {
     WhatMakesMostSense,
     SmallishEcm,
@@ -31,6 +35,7 @@ pub enum PrimenetEFOption {
     CunninghamEcm,
 }
 
+#[derive(Copy, Clone)]
 pub enum PrimenetLLFTTOption {
     WhatMakesMostSense,
     LlFirstTimeTest,
@@ -40,6 +45,7 @@ pub enum PrimenetLLFTTOption {
     LlFirstTimeNoTrialOrP1,
 }
 
+#[derive(Copy, Clone)]
 pub enum PrimenetLLDCOption {
     WhatMakesMostSense,
     LlDoubleCheck,

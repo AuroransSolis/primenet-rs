@@ -1,4 +1,4 @@
-use crate::clap_handler::{Gpu72WorkType, PrimenetWorkType};
+use crate::clap_handler::{app::Options, gpu72_work::Gpu72WorkType, p95_work::PrimenetWorkType};
 use std::fs::{remove_file, File};
 use std::io::{BufReader, BufWriter, Error as IoError, ErrorKind, Read, Result as IoResult, Write};
 use std::path::Path;
@@ -71,4 +71,4 @@ fn write_list(filename: &str, contents: &str) -> IoResult<()> {
     }
 }
 
-fn primenet_fetch(amt_to_get: usize, options: PrimenetOptions) /*->*/ {}
+fn primenet_fetch(amt_to_get: usize, options: Options) /*->*/ {}
