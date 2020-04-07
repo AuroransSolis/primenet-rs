@@ -40,7 +40,7 @@ macro_rules! map_matches {
                 $worktype_i_opt_string_ei:literal -> $worktype_i_opt_ei:expr;
             )*
             _ -> $worktype_i_opt_e:expr;)?
-            $($worktype_i_other:expr;)?
+            $(_ -> $worktype_i_other:expr;)?
         };
         $($work_string_ei:literal => $worktype_ei:path {
             $($worktype_ei_opt_string_i:literal -> $worktype_ei_opt_i:expr;
@@ -48,15 +48,15 @@ macro_rules! map_matches {
                 $worktype_ei_opt_string_ei:literal -> $worktype_ei_opt_ei:expr;
             )*
             _ -> $worktype_ei_opt_e:expr;)?
-            $($worktype_ei_other:expr;)?
-        });*
+            $(_ -> $worktype_ei_other:expr;)?
+        };)*
         _ => $worktype_e:path {
             $($worktype_e_opt_string_i:literal -> $worktype_e_opt_i:expr;
             $(
                 $worktype_e_opt_string_ei:literal -> $worktype_e_opt_ei:expr;
             )*
             _ -> $worktype_e_opt_e:expr;)?
-            $($worktype_e_other:expr;)?
+            $(_ -> $worktype_e_other:expr;)?
         };
     }) => {{
         if $matches.is_present($work_string_i) {
@@ -196,37 +196,37 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-trial-factoring")
-                .short("p95-tf")
+                .visible_alias("p95-tf")
                 .long("p95-trial-factoring")
                 .help("Request trial factoring work from Primenet"),
         )
         .arg(
             Arg::with_name("p95-p1-factoring")
-                .short("p95-p1")
+                .visible_alias("p95-p1")
                 .long("p95-p1-factoring")
                 .help("Request P-1 factoring work from Primenet"),
         )
         .arg(
             Arg::with_name("p95-optimal-p1-factoring")
-                .short("p95-op1")
+                .visible_alias("p95-op1")
                 .long("p95-optimal-p1-factoring")
                 .help("Request optimal P-1 factoring work from Primenet"),
         )
         .arg(
             Arg::with_name("p95-ecm-factoring")
-                .short("p95-ecm")
+                .visible_alias("p95-ecm")
                 .long("p95-ecm-factoring")
                 .help("Request ECM factoring work from Primenet"),
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-first-time")
-                .short("p95-llft")
+                .visible_alias("p95-llft")
                 .long("p95-lucas-lehmer-first-time")
                 .help("Request LL first time work from Primenet"),
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-double-check")
-                .short("p95-lldc")
+                .visible_alias("p95-lldc")
                 .long("p95-lucas-lehmer-double-check")
                 .help("Request LL double-check work from Primenet"),
         )
@@ -245,13 +245,13 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-what-makes-most-sense")
-                .short("p95-wmms")
+                .visible_alias("p95-wmms")
                 .long("p95-what-makes-most-sense")
                 .help("Ask Primenet to assign whatever makes most sense"),
         )
         .arg(
             Arg::with_name("p95-factoring-lmh")
-                .short("p95-flmh")
+                .visible_alias("p95-flmh")
                 .long("p95-factoring-lmh")
                 .help("Request factoring LFH work from Primenet")
                 .conflicts_with_all(&[
@@ -264,7 +264,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-factoring-trial-sieve")
-                .short("p95-fts")
+                .visible_alias("p95-fts")
                 .long("p95-factoring-trial-seve")
                 .help("Request factoring trail (sieve) work from Primenet")
                 .conflicts_with_all(&[
@@ -277,7 +277,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-factoring-p1-small")
-                .short("p95-fp1s")
+                .visible_alias("p95-fp1s")
                 .long("p95-factoring-p1-small")
                 .help("Request small P-1 factoring work from Primenet")
                 .conflicts_with_all(&[
@@ -290,7 +290,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-factoring-p1-large")
-                .short("p95-fp1l")
+                .visible_alias("p95-fp1l")
                 .long("p95-factoring-p1-large")
                 .help("Request large P-1 factoring work from Primenet")
                 .conflicts_with_all(&[
@@ -303,7 +303,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-smallish-ecm")
-                .short("p95-secm")
+                .visible_alias("p95-secm")
                 .long("p95-smallish-ecm")
                 .help("Request smallish ECM factoring work from Primenet")
                 .conflicts_with_all(&[
@@ -316,7 +316,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-fermat-ecm")
-                .short("p95-fecm")
+                .visible_alias("p95-fecm")
                 .long("p95-fermat-ecm")
                 .help("Request Fermat ECM factoring work from Primenet")
                 .conflicts_with_all(&[
@@ -329,7 +329,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-cunningham-ecm")
-                .short("p95-cecm")
+                .visible_alias("p95-cecm")
                 .long("p95-cunningham-ecm")
                 .help("Request Cunningham ECM factoring work from Primenet")
                 .conflicts_with_all(&[
@@ -342,7 +342,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-first-time-test")
-                .short("p95-ll-ft")
+                .visible_alias("p95-ll-ft")
                 .long("p95-lucas-lehmer-first-time-test")
                 .help("Request LL first time tests from Primenet")
                 .conflicts_with_all(&[
@@ -355,7 +355,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-double-check")
-                .short("p95-ll-dc")
+                .visible_alias("p95-ll-dc")
                 .long("p95-lucas-lehmer-double-check")
                 .help("Request LL double-check tests from Primenet")
                 .conflicts_with_all(&[
@@ -368,7 +368,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-world-record")
-                .short("p95-ll-wr")
+                .visible_alias("p95-ll-wr")
                 .long("p95-lucas-lehmer-first-time-test")
                 .help("Request LL world record tests from Primenet")
                 .conflicts_with_all(&[
@@ -381,7 +381,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-10m-digit")
-                .short("p95-ll-10md")
+                .visible_alias("p95-ll-10md")
                 .long("p95-lucas-lehmer-10m-digit")
                 .help("Request LL 10M digit tests from Primenet")
                 .conflicts_with_all(&[
@@ -394,7 +394,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-100m-digit")
-                .short("p95-ll-100md")
+                .visible_alias("p95-ll-100md")
                 .long("p95-lucas-lehmer-100m-digit")
                 .help("Request LL 100M digit tests from Primenet")
                 .conflicts_with_all(&[
@@ -407,7 +407,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("p95-lucas-lehmer-no-trial-or-p1")
-                .short("p95-ll-ntop1")
+                .visible_alias("p95-ll-ntop1")
                 .long("p95-lucas-lehmer-no-trial-or-p1")
                 .help("Request LL first time tests with no trial or P-1 factoring from Primenet")
                 .conflicts_with_all(&[
@@ -504,25 +504,25 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("gpu72-lucas-lehmer-trial-factor")
-                .short("gpu72-lltf")
+                .visible_alias("gpu72-lltf")
                 .long("gpu72-lucas-lehmer-trial-factor")
                 .help("Request LL trial factoring work from GPU to 72")
         )
         .arg(
             Arg::with_name("gpu72-double-check-trial-factor")
-                .short("gpu72-dctf")
+                .visible_alias("gpu72-dctf")
                 .long("gpu72-double-check-trial-factor")
                 .help("Request double-check trial factoring work from GPU to 72")
         )
         .arg(
             Arg::with_name("gpu72-lucas-lehmer-p1")
-                .short("gpu72-llp1")
+                .visible_alias("gpu72-llp1")
                 .long("gpu72-lucas-lehmer-p1")
                 .help("Request LL P-1 work from GPU to 72")
         )
         .arg(
             Arg::with_name("gpu72-double-check-p1")
-                .short("gpu72-dcp1")
+                .visible_alias("gpu72-dcp1")
                 .long("gpu72-double-check-p1")
                 .takes_value(true)
                 .number_of_values(1)
@@ -548,42 +548,42 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("gpu72-what-makes-most-sense")
-                .short("gpu72-wmms")
+                .visible_alias("gpu72-wmms")
                 .long("gpu72-what-makes-most-sense")
                 .help("Ask GPU to 72 to assign whatever makes most sense.")
                 .conflicts_with("gpu72-double-check-p1")
         )
         .arg(
             Arg::with_name("gpu72-lowest-trial-factor-level")
-                .short("gpu72-ltfl")
+                .visible_alias("gpu72-ltfl")
                 .long("gpu72-lowest-trial-factor-level")
                 .help("Request work of the lowest trial factoring level from GPU to 72")
                 .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
         )
         .arg(
             Arg::with_name("gpu72-highest-trial-factor-level")
-                .short("gpu72-htfl")
+                .visible_alias("gpu72-htfl")
                 .long("gpu72-highest-trial-factor-level")
                 .help("Request work of the highest trial factoring level from GPU to 72")
                 .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
         )
         .arg(
             Arg::with_name("gpu72-lowest-exponent")
-                .short("gpu72-le")
+                .visible_alias("gpu72-le")
                 .long("gpu72-lowest-exponent")
                 .help("Request the lowest exponent for the selected work type from GPU to 72")
                 .conflicts_with("gpu72-double-check-p1")
         )
         .arg(
             Arg::with_name("gpu72-oldest-exponent")
-                .short("gpu72-oe")
+                .visible_alias("gpu72-oe")
                 .long("gpu72-oldest-exponent")
                 .help("Request the oldest exponent for the selected work type from GPU to 72")
                 .conflicts_with("gpu72-double-check-p1")
         )
         .arg(
             Arg::with_name("gpu72-double-check-already-done")
-                .short("gpu72-dcad")
+                .visible_alias("gpu72-dcad")
                 .long("gpu72-double-check-already-done")
                 .help(
                     "Request double-check trial factoring work where a double check has already \
@@ -597,7 +597,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("gpu72-lone-mersenne-hunters-bit-first")
-                .short("gpu72-lmh-bf")
+                .visible_alias("gpu72-lmh-bf")
                 .long("gpu72-lone-mersenne-hunters-bit-first")
                 .help("Request LMH bit-first work from GPU to 72")
                 .conflicts_with_all(&[
@@ -608,7 +608,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("gpu72-lone-mersenne-hunters-depth-first")
-                .short("gpu72-lmh-df")
+                .visible_alias("gpu72-lmh-df")
                 .long("gpu72-lone-mersenne-hunters-depth-first")
                 .help("Request LMH depth-first work from GPU to 72")
                 .conflicts_with_all(&[
@@ -619,7 +619,7 @@ fn request_from_args() -> Result<Options, String> {
         )
         .arg(
             Arg::with_name("gpu72-let-gpu72-decide")
-                .short("gpu72-lgpu72d")
+                .visible_alias("gpu72-lgpu72d")
                 .long("gpu72-let-gpu72-decide")
                 .help("Let GPU to 72 decide what type of work to do.")
                 .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
@@ -725,7 +725,7 @@ fn request_from_args() -> Result<Options, String> {
                 _ -> Gpu72LLP1WorkOption::WhatMakesSens;
             };
             _ => Gpu72WorkType::DoubleCheckP1 {
-                matches.value_of("gpu72-double-check-p1").unwrap().parse::<f32>().unwrap();
+                _ -> matches.value_of("gpu72-double-check-p1").unwrap().parse::<f32>().unwrap();
             }
         });
         let work_type = if matches.is_present("gpu72-lucas-lehmer-trial-factor") {
