@@ -79,13 +79,13 @@ macro_rules! map_matches {
             }))?
             $($worktype_ei_other)?
         })* else {
-            $(if $matches.is_present($worktype_e_opt_string_i) {
+            $($worktype_e(if $matches.is_present($worktype_e_opt_string_i) {
                 $worktype_e_opt_i
             } $(else if $matches.is_present($worktype_e_opt_string_ei) {
                 $worktype_e_opt_ei
             })* else {
                 $worktype_e_opt_e
-            })?
+            }))?
             $($worktype_e_other)?
         }
     }}
@@ -743,7 +743,77 @@ fn request_from_args() -> Result<Options, String> {
             general_options,
         }))
     } else if matches.is_present("p95-credentials") {
-        Err("".to_string())
+        let credentials = if matches.is_present("p95-userpass") {
+            (
+                matches.value_of("p95-username").unwrap().to_string(),
+                matches.value_of("p95-password").unwrap().to_string(),
+            )
+        } else {
+            let username_path = matches.value_of("p95-username-file").unwrap();
+            let mut username_file = BufReader::new(File::open(username_path).unwrap());
+            let mut username = String::new();
+            username_file.read_to_string(&mut username);
+            let password_path = matches.value_of("p95-password-file").unwrap();
+            let mut password_file = BufReader::new(File::open(password_path).unwrap());
+            let mut password = String::new();
+            password_file.read_to_string(&mut password);
+            (username, password)
+        };
+        let work_directory = matches.value_of("work-directory").unwrap().to_string();
+        let num_cache = matches
+            .value_of("num-cache")
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let timeout = matches
+            .value_of("timeout")
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let general_options = GeneralOptions {
+            work_directory,
+            num_cache,
+            timeout,
+        };
+        let work_type = map_matches!(
+            matches,
+            "p95-trial-factoring" => PrimenetWorkType::TrialFactoring {
+                "p95-what-makes-most-sense" -> PrimenetTFOption::WhatMakesMostSense;
+                "p95-factoring-lmh" -> PrimenetTFOption::FactoringLmh;
+                _ -> PrimenetTFOption::FactoringTrialSieve;
+            }
+            "p95-p1-factoring" => PrimenetWorkType::P1Factoring {
+                "p95-what-makes-most-sense" -> PrimenetP1FOption::WhatMakesMostSense;
+                _ -> PrimenetP1FOption::FactoringP1Small;
+            }
+            "p95-optimal-p1-factoring" => PrimenetWorkType::OptimalP1Factoring {
+                "p95-what-makes-most-sense" -> PrimenetOP1FOption::WhatMakesMostSense;
+                _ -> PrimenetOP1FOption::FactoringP1Large;
+            }
+            "p95-ecm-factoring" => PrimenetWorkType::EcmFactoring {
+                "p95-what-makes-most-sense" -> PrimenetEFOption::WhatMakesMostSense;
+                "p95-smallish-ecm" -> PrimenetEFOption::SmallishEcm;
+                "p95-fermat-ecm" -> PrimenetEFOption::FermatEcm;
+                _ -> PrimenetEFOption::CunninghamEcm;
+            }
+            "p95-lucas-lehmer-first-time" => PrimenetWorkType::LlFirstTimeTest {
+                "p95-what-makes-most-sense" -> PrimenetLLFTTOption::WhatMakesMostSense;
+                "p95-lucas-lehmer-first-time-test" -> PrimenetLLFTTOption::LlFirstTimeTest;
+                "p95-lucas-lehmer-world-record" -> PrimenetLLFTTOption::LlWorldRecord;
+                "p95-lucas-lehmer-10m-digit" -> PrimenetLLFTTOption::Ll10mDigit;
+                "p95-lucas-lehmer-100m-digit" -> PrimenetLLFTTOption::Ll100mDigit;
+                _ -> PrimenetLLFTTOption::LlFirstTimeNoTrialOrP1;
+            }
+            _ => PrimenetWorkType::LlDoubleCheck {
+                "p95-what-makes-most-sense" -> PrimenetLLDCOption::WhatMakesMostSense;
+                _ -> PrimenetLLDCOption::LlDoubleCheck;
+            }
+        );
+        Ok(Options::Primenet(PrimenetOptions {
+            credentials,
+            work_type,
+            general_options
+        }))
     } else {
         Err(
             "Missing minimum requirements: \n    \
