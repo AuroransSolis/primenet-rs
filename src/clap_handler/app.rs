@@ -631,7 +631,11 @@ fn request_from_args() -> Result<Options, String> {
             .unwrap()
             .parse::<usize>()
             .unwrap();
-        let timeout = matches.value_of("timeout").unwrap().parse::<usize>().unwrap();
+        let timeout = matches
+            .value_of("timeout")
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
         let general_options = GeneralOptions {
             work_directory,
             num_cache,
@@ -680,7 +684,13 @@ fn request_from_args() -> Result<Options, String> {
                 Gpu72LLP1WorkOption::WhatMakesSense
             })
         } else {
-            Gpu72WorkType::DoubleCheckP1(matches.value_of("gpu72-double-check-p1").unwrap().parse::<f32>().unwrap())
+            Gpu72WorkType::DoubleCheckP1(
+                matches
+                    .value_of("gpu72-double-check-p1")
+                    .unwrap()
+                    .parse::<f32>()
+                    .unwrap(),
+            )
         };
         Ok(Options::Gpu72(Gpu72Options {
             primenet_credentials,
