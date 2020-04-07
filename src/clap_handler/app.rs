@@ -32,6 +32,64 @@ pub enum Options {
     Gpu72(Gpu72Options),
 }
 
+macro_rules! map_matches {
+    ($matches:ident {
+        $work_string_i:literal => $worktype_i:path {
+            $($worktype_i_opt_string_i:literal -> $worktype_i_opt_i:expr;
+            $(
+                $worktype_i_opt_string_ei:literal -> $worktype_i_opt_ei:expr;
+            )*
+            _ -> $worktype_i_opt_e:expr;)?
+            $($worktype_i_other:expr;)?
+        };
+        $($work_string_ei:literal => $worktype_ei:path {
+            $($worktype_ei_opt_string_i:literal -> $worktype_ei_opt_i:expr;
+            $(
+                $worktype_ei_opt_string_ei:literal -> $worktype_ei_opt_ei:expr;
+            )*
+            _ -> $worktype_ei_opt_e:expr;)?
+            $($worktype_ei_other:expr;)?
+        });*
+        _ => $worktype_e:path {
+            $($worktype_e_opt_string_i:literal -> $worktype_e_opt_i:expr;
+            $(
+                $worktype_e_opt_string_ei:literal -> $worktype_e_opt_ei:expr;
+            )*
+            _ -> $worktype_e_opt_e:expr;)?
+            $($worktype_e_other:expr;)?
+        };
+    }) => {{
+        if $matches.is_present($work_string_i) {
+            $($worktype_i(if $matches.is_present($worktype_i_opt_string_i) {
+                $worktype_i_opt_i
+            } $(else if $matches.is_present($worktype_i_opt_string_ei) {
+                $worktype_i_opt_ei
+            })* else {
+                $worktype_i_opt_e
+            }))?
+            $($worktype_i_other)?
+        } $(else if $matches.is_present($work_string_ei) {
+            $($worktype_ei(if $matches.is_present($worktype_ei_opt_string_i) {
+                $worktype_ei_opt_i
+            } $(else if $matches.is_present($worktype_ei_opt_string_ei) {
+                $worktype_ei_opt_ei
+            })* else {
+                $worktype_ei_opt_e
+            }))?
+            $($worktype_ei_other)?
+        })* else {
+            $(if $matches.is_present($worktype_e_opt_string_i) {
+                $worktype_e_opt_i
+            } $(else if $matches.is_present($worktype_e_opt_string_ei) {
+                $worktype_e_opt_ei
+            })* else {
+                $worktype_e_opt_e
+            })?
+            $($worktype_e)?
+        }
+    }}
+}
+
 fn request_from_args() -> Result<Options, String> {
     let current_dir = format!("{}", current_dir().unwrap().display());
     let matches = App::new("primenet-rs")
@@ -641,6 +699,35 @@ fn request_from_args() -> Result<Options, String> {
             num_cache,
             timeout,
         };
+        let work_type = map_matches!(matches {
+            "gpu72-lucas-lehmer-trial-factor" => Gpu72WorkType::LucasLemerTrialFactor {
+                "gpu72-what-makes-sense" -> Gpu72LLTFWorkOption::WhatMakesSense;
+                "gpu72-lowest-trial-factor-level" -> Gpu72LLTFWorkOption::LowestTrialFactorLevel;
+                "gpu72-highest-trial-factor-level" -> Gpu72LLTFWorkOption::HighestTrialFactorLevel;
+                "gpu72-lowest-exponent" -> Gpu72LLTFWorkOption::LowestExponent;
+                "gpu72-oldest-exponent" -> Gpu72LLTFWorkOption::OldestExponent;
+                "gpu72-lone-mersenne-hunters-bit-first" -> Gpu72LLTFWorkOption::LmhBitFirst;
+                "gpu72-lone-mersenne-hunters-depth-first" -> Gpu72LLTFWorkOption::LmhDepthFirst;
+                _ -> Gpu72LLTFWorkOption::LetGpu72Decide;
+            };
+            "gpu72-double-check-trial-factor" => Gpu72WorkType::DoubleCheckTrialFactor {
+                "gpu72-what-makes-sense" -> Gpu72DCTFWorkOption::WhatMakesSense;
+                "gpu72-lowest-trial-factor-level" -> Gpu72DCTFWorkOption::LowestTrialFactorLevel;
+                "gpu72-highest-trial-factor-level" -> Gpu72DCTFWorkOption::HighestTrialFactorLevel;
+                "gpu72-lowest-exponent" -> Gpu72DCTFWorkOption::LowestExponent;
+                "gpu72-oldest-exponent" -> Gpu72DCTFWorkOption::OldestExponent;
+                "gpu72-double-check-already-done" -> Gpu72DCTFWorkOption::DoubleCheckAlreadyDone;
+                _ -> Gpu72DCTFWorkOption::LetGpu72Decide;
+            };
+            "gpu72-lucas-lehmer-p1" => Gpu72WorkType::LucasLehmerP1 {
+                "gpu72-lowest-exponent" -> Gpu72LLP1WorkOption::LowestExponent;
+                "gpu72-oldest-exponent" -> Gpu72LLP1WorkOption::OldestExponent;
+                _ -> Gpu72LLP1WorkOption::WhatMakesSens;
+            };
+            _ => Gpu72WorkType::DoubleCheckP1 {
+                matches.value_of("gpu72-double-check-p1").unwrap().parse::<f32>().unwrap();
+            }
+        });
         let work_type = if matches.is_present("gpu72-lucas-lehmer-trial-factor") {
             Gpu72WorkType::LucasLehmerTrialFactor(if matches.is_present("gpu72-what-makes-sense") {
                 Gpu72LLTFWorkOption::WhatMakesSense
@@ -653,9 +740,9 @@ fn request_from_args() -> Result<Options, String> {
             } else if matches.is_present("gpu72-oldest-exponent") {
                 Gpu72LLTFWorkOption::OldestExponent
             } else if matches.is_present("gpu72-lone-mersenne-hunters-bit-first") {
-                Gpu72LLTFWorkOption::LoneMersenneHuntersBitFirst
+                Gpu72LLTFWorkOption::LmhBitFirst
             } else if matches.is_present("gpu72-lone-mersenne-hunters-depth-first") {
-                Gpu72LLTFWorkOption::LoneMersenneHuntersDepthFirst
+                Gpu72LLTFWorkOption::LmhDepthFirst
             } else {
                 Gpu72LLTFWorkOption::LetGpu72Decide
             })

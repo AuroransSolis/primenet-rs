@@ -15,8 +15,8 @@ pub enum Gpu72LLTFWorkOption {
     HighestTrialFactorLevel,
     LowestExponent,
     OldestExponent,
-    LoneMersenneHuntersBitFirst,
-    LoneMersenneHuntersDepthFirst,
+    LmhBitFirst,
+    LmhDepthFirst,
     LetGpu72Decide,
 }
 
