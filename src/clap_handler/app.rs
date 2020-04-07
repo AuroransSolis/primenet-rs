@@ -1,24 +1,26 @@
 use super::gpu72_work::*;
 use super::p95_work::*;
 use super::validators::*;
-use clap::{App, Arg, ArgGroup, ArgMatches};
+use clap::{App, Arg, ArgGroup, SubCommand};
 use std::env::current_dir;
-use std::fs::{read_dir, File};
-use std::io::{BufRead, BufReader, Read};
-use std::path::Path;
+use std::fs::File;
+use std::io::{BufReader, Read};
 
+#[derive(Debug)]
 pub struct GeneralOptions {
     work_directory: String,
     num_cache: usize,
     timeout: usize,
 }
 
+#[derive(Debug)]
 pub struct PrimenetOptions {
     credentials: (String, String),
     work_type: PrimenetWorkType,
     general_options: GeneralOptions,
 }
 
+#[derive(Debug)]
 pub struct Gpu72Options {
     primenet_credentials: Option<(String, String)>,
     gpu72_credentials: (String, String),
@@ -27,6 +29,7 @@ pub struct Gpu72Options {
     general_options: GeneralOptions,
 }
 
+#[derive(Debug)]
 pub enum Options {
     Primenet(PrimenetOptions),
     Gpu72(Gpu72Options),
@@ -91,11 +94,11 @@ macro_rules! map_matches {
     }}
 }
 
-fn request_from_args() -> Result<Options, String> {
+pub fn request_from_args() -> Result<Options, String> {
     let current_dir = format!("{}", current_dir().unwrap().display());
     let matches = App::new("primenet-rs")
         .version("1.0.0")
-        .about("Interface to request from and report to Primenet (GIMPS).")
+        .about("Interface to request from and report to Primenet (GIMPS) and GPU to 72.")
         .author("Aurorans Solis")
         .arg(
             Arg::with_name("work-directory")
@@ -106,10 +109,8 @@ fn request_from_args() -> Result<Options, String> {
                 .value_name("WORKDIR")
                 .default_value(&current_dir)
                 .validator(directory_validator)
-                .help(&format!(
-                    "Working directory with worktodo.txt/worktodo.ini and results.txt. Default: {}",
-                    current_dir
-                )),
+                .help("Working directory with worktodo.txt/worktodo.ini and results.txt")
+                .global(true),
         )
         .arg(
             Arg::with_name("num-cache")
@@ -120,8 +121,8 @@ fn request_from_args() -> Result<Options, String> {
                 .value_name("NUM_CACHE")
                 .default_value("1")
                 .validator(numeric_validator)
-                .help("Number of assignments to cache. Default: 1")
-                .required(true),
+                .help("Number of assignments to cache")
+                .global(true),
         )
         .arg(
             Arg::with_name("timeout")
@@ -135,518 +136,573 @@ fn request_from_args() -> Result<Options, String> {
                     "Seconds to wait between network updates. Use 0 for a single update without \
                     looping.",
                 )
-                .required(true),
+                .global(true),
         )
         .group(
             ArgGroup::with_name("general options")
                 .args(&["work-directory", "num-cache", "timeout"])
                 .multiple(true),
         )
-        .arg(
-            Arg::with_name("p95-username")
-                .long("p95-username")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("USERNAME")
-                .validator(p95_username_validator)
-                .help("Primenet username"),
-        )
-        .arg(
-            Arg::with_name("p95-password")
-                .long("p95-password")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("PASSWORD")
-                .help("Primenet password"),
-        )
-        .group(
-            ArgGroup::with_name("p95-userpass")
-                .args(&["p95-username", "p95-password"])
-                .multiple(true),
-        )
-        .arg(
-            Arg::with_name("p95-username-file")
-                .long("p95-username-file")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("FILE_PATH")
-                .validator(file_validator)
-                .help("Path to file containing Primenet username"),
-        )
-        .arg(
-            Arg::with_name("p95-password-file")
-                .long("p95-password-file")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("FILE_PATH")
-                .validator(file_validator)
-                .help("Path to file containing Primenet password"),
-        )
-        .group(
-            ArgGroup::with_name("p95-userpass-files")
-                .args(&["p95-username-file", "p95-password-file"])
-                .multiple(true),
-        )
-        .group(
-            ArgGroup::with_name("p95-credentials")
-                .args(&[
-                    "p95-userpass",
-                    "p95-userpass-files",
-                ])
-                .multiple(false),
-        )
-        .arg(
-            Arg::with_name("p95-trial-factoring")
-                .visible_alias("p95-tf")
-                .long("p95-trial-factoring")
-                .help("Request trial factoring work from Primenet"),
-        )
-        .arg(
-            Arg::with_name("p95-p1-factoring")
-                .visible_alias("p95-p1")
-                .long("p95-p1-factoring")
-                .help("Request P-1 factoring work from Primenet"),
-        )
-        .arg(
-            Arg::with_name("p95-optimal-p1-factoring")
-                .visible_alias("p95-op1")
-                .long("p95-optimal-p1-factoring")
-                .help("Request optimal P-1 factoring work from Primenet"),
-        )
-        .arg(
-            Arg::with_name("p95-ecm-factoring")
-                .visible_alias("p95-ecm")
-                .long("p95-ecm-factoring")
-                .help("Request ECM factoring work from Primenet"),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-first-time")
-                .visible_alias("p95-llft")
-                .long("p95-lucas-lehmer-first-time")
-                .help("Request LL first time work from Primenet"),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-double-check")
-                .visible_alias("p95-lldc")
-                .long("p95-lucas-lehmer-double-check")
-                .help("Request LL double-check work from Primenet"),
-        )
-        .group(
-            ArgGroup::with_name("p95-worktypes")
-                .args(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ])
-                .multiple(false)
-                .requires("p95-workopts"),
-        )
-        .arg(
-            Arg::with_name("p95-what-makes-most-sense")
-                .visible_alias("p95-wmms")
-                .long("p95-what-makes-most-sense")
-                .help("Ask Primenet to assign whatever makes most sense"),
-        )
-        .arg(
-            Arg::with_name("p95-factoring-lmh")
-                .visible_alias("p95-flmh")
-                .long("p95-factoring-lmh")
-                .help("Request factoring LFH work from Primenet")
-                .conflicts_with_all(&[
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-factoring-trial-sieve")
-                .visible_alias("p95-fts")
-                .long("p95-factoring-trial-seve")
-                .help("Request factoring trail (sieve) work from Primenet")
-                .conflicts_with_all(&[
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-factoring-p1-small")
-                .visible_alias("p95-fp1s")
-                .long("p95-factoring-p1-small")
-                .help("Request small P-1 factoring work from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-factoring-p1-large")
-                .visible_alias("p95-fp1l")
-                .long("p95-factoring-p1-large")
-                .help("Request large P-1 factoring work from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-smallish-ecm")
-                .visible_alias("p95-secm")
-                .long("p95-smallish-ecm")
-                .help("Request smallish ECM factoring work from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-fermat-ecm")
-                .visible_alias("p95-fecm")
-                .long("p95-fermat-ecm")
-                .help("Request Fermat ECM factoring work from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-cunningham-ecm")
-                .visible_alias("p95-cecm")
-                .long("p95-cunningham-ecm")
-                .help("Request Cunningham ECM factoring work from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-lucas-lehmer-first-time",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-first-time-test")
-                .visible_alias("p95-ll-ft")
-                .long("p95-lucas-lehmer-first-time-test")
-                .help("Request LL first time tests from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-double-check")
-                .visible_alias("p95-ll-dc")
-                .long("p95-lucas-lehmer-double-check")
-                .help("Request LL double-check tests from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-first-time",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-world-record")
-                .visible_alias("p95-ll-wr")
-                .long("p95-lucas-lehmer-first-time-test")
-                .help("Request LL world record tests from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-10m-digit")
-                .visible_alias("p95-ll-10md")
-                .long("p95-lucas-lehmer-10m-digit")
-                .help("Request LL 10M digit tests from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-100m-digit")
-                .visible_alias("p95-ll-100md")
-                .long("p95-lucas-lehmer-100m-digit")
-                .help("Request LL 100M digit tests from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .arg(
-            Arg::with_name("p95-lucas-lehmer-no-trial-or-p1")
-                .visible_alias("p95-ll-ntop1")
-                .long("p95-lucas-lehmer-no-trial-or-p1")
-                .help("Request LL first time tests with no trial or P-1 factoring from Primenet")
-                .conflicts_with_all(&[
-                    "p95-trial-factoring",
-                    "p95-p1-factoring",
-                    "p95-optimal-p1-factoring",
-                    "p95-ecm-factoring",
-                    "p95-lucas-lehmer-double-check",
-                ]),
-        )
-        .group(
-            ArgGroup::with_name("p95-workopts")
-                .args(&[
-                    "p95-what-makes-most-sense",
-                    "p95-factoring-lmh",
-                    "p95-factoring-trial-sieve",
-                    "p95-factoring-p1-small",
-                    "p95-factoring-p1-large",
-                    "p95-smallish-ecm",
-                    "p95-fermat-ecm",
-                    "p95-cunningham-ecm",
-                    "p95-lucas-lehmer-first-time-test",
-                    "p95-lucas-lehmer-double-check",
-                    "p95-lucas-lehmer-world-record",
-                    "p95-lucas-lehmer-10m-digit",
-                    "p95-lucas-lehmer-100m-digit",
-                    "p95-lucas-lehmer-no-trial-or-p1",
-                ])
-                .multiple(false),
-        )
-        .group(
-            ArgGroup::with_name("p95-work")
-                .args(&["p95-worktypes", "p95-workopts"])
-        )
-        .arg(
-            Arg::with_name("gpu72-username")
-                .long("gpu72-username")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("USERNAME")
-                .validator(gpu72_username_validator)
-                .help("GPU to 72 username"),
-        )
-        .arg(
-            Arg::with_name("gpu72-password")
-                .long("gpu72-password")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("PASSWORD")
-                .help("GPU to 72 password"),
-        )
-        .group(
-            ArgGroup::with_name("gpu72-userpass")
-                .args(&["gpu72-username", "gpu72-password"])
-                .multiple(true),
-        )
-        .arg(
-            Arg::with_name("gpu72-username-file")
-                .long("gpu72-username-file")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("FILE_PATH")
-                .validator(file_validator)
-                .help("Path to file containing GPU to 72 username"),
-        )
-        .arg(
-            Arg::with_name("gpu72-password-file")
-                .long("gpu72-password-file")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("FILE_PATH")
-                .validator(file_validator)
-                .help("Path to file containing GPU to 72 password"),
-        )
-        .group(
-            ArgGroup::with_name("gpu72-userpass-files")
-                .args(&["gpu72-username-file", "gpu72-password-file"])
-                .multiple(true),
-        )
-        .group(
-            ArgGroup::with_name("gpu72-credentials")
-                .args(&[
-                    "gpu72-userpass",
-                    "gpu72-userpass-files",
-                ])
-                .multiple(false)
-                .requires("gpu72-work"),
-        )
-        .arg(
-            Arg::with_name("gpu72-fallback")
-                .long("gpu72-fallback")
-                .help("Fall back to Primenet if requests to GPU to 72 fail or it has no work")
-                .requires("p95-credentials"),
-        )
-        .arg(
-            Arg::with_name("gpu72-lucas-lehmer-trial-factor")
-                .visible_alias("gpu72-lltf")
-                .long("gpu72-lucas-lehmer-trial-factor")
-                .help("Request LL trial factoring work from GPU to 72")
-        )
-        .arg(
-            Arg::with_name("gpu72-double-check-trial-factor")
-                .visible_alias("gpu72-dctf")
-                .long("gpu72-double-check-trial-factor")
-                .help("Request double-check trial factoring work from GPU to 72")
-        )
-        .arg(
-            Arg::with_name("gpu72-lucas-lehmer-p1")
-                .visible_alias("gpu72-llp1")
-                .long("gpu72-lucas-lehmer-p1")
-                .help("Request LL P-1 work from GPU to 72")
-        )
-        .arg(
-            Arg::with_name("gpu72-double-check-p1")
-                .visible_alias("gpu72-dcp1")
-                .long("gpu72-double-check-p1")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("EFFORT")
-                .default_value("2.0")
-                .validator(f32_validator)
-                .help("Request double-check P-1 ork from GPU to 72. Note: effort below 1.0 is pointless.")
-        )
-        .group(
-            ArgGroup::with_name("gpu72-worktype-require-opts")
-                .args(&[
-                    "gpu72-lucas-lehmer-trial-factor",
-                    "gpu72-double-check-trial-factor",
-                    "gpu72-lucas-lehmer-p1",
-                ])
-                .multiple(false)
-                .requires("gpu72-workopts")
-        )
-        .group(
-            ArgGroup::with_name("gpu72-worktypes")
-                .args(&["gpu72-worktype-require-opts", "gpu72-double-check-p1"])
-                .multiple(false)
-        )
-        .arg(
-            Arg::with_name("gpu72-what-makes-most-sense")
-                .visible_alias("gpu72-wmms")
-                .long("gpu72-what-makes-most-sense")
-                .help("Ask GPU to 72 to assign whatever makes most sense.")
-                .conflicts_with("gpu72-double-check-p1")
-        )
-        .arg(
-            Arg::with_name("gpu72-lowest-trial-factor-level")
-                .visible_alias("gpu72-ltfl")
-                .long("gpu72-lowest-trial-factor-level")
-                .help("Request work of the lowest trial factoring level from GPU to 72")
-                .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
-        )
-        .arg(
-            Arg::with_name("gpu72-highest-trial-factor-level")
-                .visible_alias("gpu72-htfl")
-                .long("gpu72-highest-trial-factor-level")
-                .help("Request work of the highest trial factoring level from GPU to 72")
-                .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
-        )
-        .arg(
-            Arg::with_name("gpu72-lowest-exponent")
-                .visible_alias("gpu72-le")
-                .long("gpu72-lowest-exponent")
-                .help("Request the lowest exponent for the selected work type from GPU to 72")
-                .conflicts_with("gpu72-double-check-p1")
-        )
-        .arg(
-            Arg::with_name("gpu72-oldest-exponent")
-                .visible_alias("gpu72-oe")
-                .long("gpu72-oldest-exponent")
-                .help("Request the oldest exponent for the selected work type from GPU to 72")
-                .conflicts_with("gpu72-double-check-p1")
-        )
-        .arg(
-            Arg::with_name("gpu72-double-check-already-done")
-                .visible_alias("gpu72-dcad")
-                .long("gpu72-double-check-already-done")
-                .help(
-                    "Request double-check trial factoring work where a double check has already \
-                    been done from GPU to 72"
+        .subcommand(
+            SubCommand::with_name("p95")
+                .author("Aurorans Solis")
+                .version("1.0.0")
+                .about("Interface to request from and report to Primenet (GIMPS)")
+                .arg(
+                    Arg::with_name("p95-username")
+                        .long("p95-username")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("USERNAME")
+                        .validator(p95_username_validator)
+                        .help("Primenet username"),
                 )
-                .conflicts_with_all(&[
-                    "gpu72-lucas-lehmer-trial-factor",
-                    "gpu72-lucas-lehmer-p1",
-                    "gpu72-double-check-p1",
-                ])
+                .arg(
+                    Arg::with_name("p95-password")
+                        .long("p95-password")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("PASSWORD")
+                        .help("Primenet password"),
+                )
+                .group(
+                    ArgGroup::with_name("p95-userpass")
+                        .args(&["p95-username", "p95-password"])
+                        .multiple(true),
+                )
+                .arg(
+                    Arg::with_name("p95-username-file")
+                        .long("p95-username-file")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("FILE_PATH")
+                        .validator(file_validator)
+                        .help("Path to file containing Primenet username"),
+                )
+                .arg(
+                    Arg::with_name("p95-password-file")
+                        .long("p95-password-file")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("FILE_PATH")
+                        .validator(file_validator)
+                        .help("Path to file containing Primenet password"),
+                )
+                .group(
+                    ArgGroup::with_name("p95-userpass-files")
+                        .args(&["p95-username-file", "p95-password-file"])
+                        .multiple(true),
+                )
+                .group(
+                    ArgGroup::with_name("p95-credentials")
+                        .args(&[
+                            "p95-userpass",
+                            "p95-userpass-files",
+                        ])
+                        .multiple(false),
+                )
+                .arg(
+                    Arg::with_name("p95-trial-factoring")
+                        .visible_alias("p95-tf")
+                        .long("p95-trial-factoring")
+                        .help("Request trial factoring work from Primenet"),
+                )
+                .arg(
+                    Arg::with_name("p95-p1-factoring")
+                        .visible_alias("p95-p1")
+                        .long("p95-p1-factoring")
+                        .help("Request P-1 factoring work from Primenet"),
+                )
+                .arg(
+                    Arg::with_name("p95-optimal-p1-factoring")
+                        .visible_alias("p95-op1")
+                        .long("p95-optimal-p1-factoring")
+                        .help("Request optimal P-1 factoring work from Primenet"),
+                )
+                .arg(
+                    Arg::with_name("p95-ecm-factoring")
+                        .visible_alias("p95-ecm")
+                        .long("p95-ecm-factoring")
+                        .help("Request ECM factoring work from Primenet"),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-first-time")
+                        .visible_alias("p95-llft")
+                        .long("p95-lucas-lehmer-first-time")
+                        .help("Request LL first time work from Primenet"),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-double-check")
+                        .visible_alias("p95-lldc")
+                        .long("p95-lucas-lehmer-double-check")
+                        .help("Request LL double-check work from Primenet"),
+                )
+                .group(
+                    ArgGroup::with_name("p95-worktypes")
+                        .args(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ])
+                        .multiple(false)
+                        .requires("p95-workopts"),
+                )
+                .arg(
+                    Arg::with_name("p95-what-makes-most-sense")
+                        .visible_alias("p95-wmms")
+                        .long("p95-what-makes-most-sense")
+                        .help("Ask Primenet to assign whatever makes most sense"),
+                )
+                .arg(
+                    Arg::with_name("p95-factoring-lmh")
+                        .visible_alias("p95-flmh")
+                        .long("p95-factoring-lmh")
+                        .help("Request factoring LFH work from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-factoring-trial-sieve")
+                        .visible_alias("p95-fts")
+                        .long("p95-factoring-trial-sieve")
+                        .help("Request factoring trail (sieve) work from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-factoring-p1-small")
+                        .visible_alias("p95-fp1s")
+                        .long("p95-factoring-p1-small")
+                        .help("Request small P-1 factoring work from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-factoring-p1-large")
+                        .visible_alias("p95-fp1l")
+                        .long("p95-factoring-p1-large")
+                        .help("Request large P-1 factoring work from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-smallish-ecm")
+                        .visible_alias("p95-secm")
+                        .long("p95-smallish-ecm")
+                        .help("Request smallish ECM factoring work from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-fermat-ecm")
+                        .visible_alias("p95-fecm")
+                        .long("p95-fermat-ecm")
+                        .help("Request Fermat ECM factoring work from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-cunningham-ecm")
+                        .visible_alias("p95-cecm")
+                        .long("p95-cunningham-ecm")
+                        .help("Request Cunningham ECM factoring work from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-lucas-lehmer-first-time",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-first-time-test")
+                        .visible_alias("p95-ll-ft")
+                        .long("p95-lucas-lehmer-first-time-test")
+                        .help("Request LL first time tests from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-double-check")
+                        .visible_alias("p95-ll-dc")
+                        .long("p95-lucas-lehmer-double-check")
+                        .help("Request LL double-check tests from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-first-time",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-world-record")
+                        .visible_alias("p95-ll-wr")
+                        .long("p95-lucas-lehmer-world-record")
+                        .help("Request LL world record tests from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-10m-digit")
+                        .visible_alias("p95-ll-10md")
+                        .long("p95-lucas-lehmer-10m-digit")
+                        .help("Request LL 10M digit tests from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-100m-digit")
+                        .visible_alias("p95-ll-100md")
+                        .long("p95-lucas-lehmer-100m-digit")
+                        .help("Request LL 100M digit tests from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("p95-lucas-lehmer-no-trial-or-p1")
+                        .visible_alias("p95-ll-ntop1")
+                        .long("p95-lucas-lehmer-no-trial-or-p1")
+                        .help("Request LL first time tests with no trial or P-1 factoring from Primenet")
+                        .conflicts_with_all(&[
+                            "p95-trial-factoring",
+                            "p95-p1-factoring",
+                            "p95-optimal-p1-factoring",
+                            "p95-ecm-factoring",
+                            "p95-lucas-lehmer-double-check",
+                        ]),
+                )
+                .group(
+                    ArgGroup::with_name("p95-workopts")
+                        .args(&[
+                            "p95-what-makes-most-sense",
+                            "p95-factoring-lmh",
+                            "p95-factoring-trial-sieve",
+                            "p95-factoring-p1-small",
+                            "p95-factoring-p1-large",
+                            "p95-smallish-ecm",
+                            "p95-fermat-ecm",
+                            "p95-cunningham-ecm",
+                            "p95-lucas-lehmer-first-time-test",
+                            "p95-lucas-lehmer-double-check",
+                            "p95-lucas-lehmer-world-record",
+                            "p95-lucas-lehmer-10m-digit",
+                            "p95-lucas-lehmer-100m-digit",
+                            "p95-lucas-lehmer-no-trial-or-p1",
+                        ])
+                        .multiple(false),
+                )
         )
-        .arg(
-            Arg::with_name("gpu72-lone-mersenne-hunters-bit-first")
-                .visible_alias("gpu72-lmh-bf")
-                .long("gpu72-lone-mersenne-hunters-bit-first")
-                .help("Request LMH bit-first work from GPU to 72")
-                .conflicts_with_all(&[
-                    "gpu72-double-check-trial-factor",
-                    "gpu72-lucas-lehmer-p1",
-                    "gpu72-double-check-p1",
-                ])
-        )
-        .arg(
-            Arg::with_name("gpu72-lone-mersenne-hunters-depth-first")
-                .visible_alias("gpu72-lmh-df")
-                .long("gpu72-lone-mersenne-hunters-depth-first")
-                .help("Request LMH depth-first work from GPU to 72")
-                .conflicts_with_all(&[
-                    "gpu72-double-check-trial-factor",
-                    "gpu72-lucas-lehmer-p1",
-                    "gpu72-double-check-p1",
-                ])
-        )
-        .arg(
-            Arg::with_name("gpu72-let-gpu72-decide")
-                .visible_alias("gpu72-lgpu72d")
-                .long("gpu72-let-gpu72-decide")
-                .help("Let GPU to 72 decide what type of work to do.")
-                .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
-        )
-        .group(
-            ArgGroup::with_name("gpu72-workopts")
-                .args(&[
-                    "gpu72-what-makes-sense",
-                    "gpu72-lowest-trial-factor-level",
-                    "gpu72-highest-trial-factor-level",
-                    "gpu72-lowest-exponent",
-                    "gpu72-oldest-exponent",
-                    "gpu72-double-check-already-done",
-                    "gpu72-lone-mersenne-hunters-bit-first",
-                    "gpu72-lone-mersenne-hunters-depth-first",
-                    "gpu72-let-gpu72-decide"
-                ])
-                .multiple(false)
-        )
-        .group(
-            ArgGroup::with_name("gpu72-work")
-                .args(&["gpu72-worktypes", "gpu72-workopts"])
-                .multiple(false)
-                .conflicts_with("p95-work")
+        .subcommand(
+            SubCommand::with_name("gpu72")
+                .author("Aurorans Solis")
+                .version("1.0.0")
+                .about("Interface to request from and report to GPU to 72")
+                .arg(
+                    Arg::with_name("gpu72-username")
+                        .long("gpu72-username")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("USERNAME")
+                        .validator(gpu72_username_validator)
+                        .help("GPU to 72 username"),
+                )
+                .arg(
+                    Arg::with_name("gpu72-password")
+                        .long("gpu72-password")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("PASSWORD")
+                        .help("GPU to 72 password"),
+                )
+                .group(
+                    ArgGroup::with_name("gpu72-userpass")
+                        .args(&["gpu72-username", "gpu72-password"])
+                        .multiple(true),
+                )
+                .arg(
+                    Arg::with_name("gpu72-username-file")
+                        .long("gpu72-username-file")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("FILE_PATH")
+                        .validator(file_validator)
+                        .help("Path to file containing GPU to 72 username"),
+                )
+                .arg(
+                    Arg::with_name("gpu72-password-file")
+                        .long("gpu72-password-file")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("FILE_PATH")
+                        .validator(file_validator)
+                        .help("Path to file containing GPU to 72 password"),
+                )
+                .group(
+                    ArgGroup::with_name("gpu72-userpass-files")
+                        .args(&["gpu72-username-file", "gpu72-password-file"])
+                        .multiple(true),
+                )
+                .group(
+                    ArgGroup::with_name("gpu72-credentials")
+                        .args(&[
+                            "gpu72-userpass",
+                            "gpu72-userpass-files",
+                        ])
+                        .multiple(false)
+                        .requires("gpu72-work"),
+                )
+                .arg(
+                    Arg::with_name("p95-username")
+                        .long("p95-username")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("USERNAME")
+                        .validator(p95_username_validator)
+                        .help("Primenet username"),
+                )
+                .arg(
+                    Arg::with_name("p95-password")
+                        .long("p95-password")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("PASSWORD")
+                        .help("Primenet password"),
+                )
+                .group(
+                    ArgGroup::with_name("p95-userpass")
+                        .args(&["p95-username", "p95-password"])
+                        .multiple(true),
+                )
+                .arg(
+                    Arg::with_name("p95-username-file")
+                        .long("p95-username-file")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("FILE_PATH")
+                        .validator(file_validator)
+                        .help("Path to file containing Primenet username"),
+                )
+                .arg(
+                    Arg::with_name("p95-password-file")
+                        .long("p95-password-file")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("FILE_PATH")
+                        .validator(file_validator)
+                        .help("Path to file containing Primenet password"),
+                )
+                .group(
+                    ArgGroup::with_name("p95-userpass-files")
+                        .args(&["p95-username-file", "p95-password-file"])
+                        .multiple(true),
+                )
+                .group(
+                    ArgGroup::with_name("p95-credentials")
+                        .args(&[
+                            "p95-userpass",
+                            "p95-userpass-files",
+                        ])
+                        .multiple(false),
+                )
+                .arg(
+                    Arg::with_name("gpu72-fallback")
+                        .long("gpu72-fallback")
+                        .help("Fall back to Primenet if requests to GPU to 72 fail or it has no work")
+                        .requires("p95-credentials"),
+                )
+                .arg(
+                    Arg::with_name("gpu72-lucas-lehmer-trial-factor")
+                        .visible_alias("gpu72-lltf")
+                        .long("gpu72-lucas-lehmer-trial-factor")
+                        .help("Request LL trial factoring work from GPU to 72")
+                )
+                .arg(
+                    Arg::with_name("gpu72-double-check-trial-factor")
+                        .visible_alias("gpu72-dctf")
+                        .long("gpu72-double-check-trial-factor")
+                        .help("Request double-check trial factoring work from GPU to 72")
+                )
+                .arg(
+                    Arg::with_name("gpu72-lucas-lehmer-p1")
+                        .visible_alias("gpu72-llp1")
+                        .long("gpu72-lucas-lehmer-p1")
+                        .help("Request LL P-1 work from GPU to 72")
+                )
+                .arg(
+                    Arg::with_name("gpu72-double-check-p1")
+                        .visible_alias("gpu72-dcp1")
+                        .long("gpu72-double-check-p1")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("EFFORT")
+                        .default_value("2.0")
+                        .validator(f32_validator)
+                        .help("Request double-check P-1 ork from GPU to 72. Note: effort below 1.0 is pointless.")
+                )
+                .group(
+                    ArgGroup::with_name("gpu72-worktype-require-opts")
+                        .args(&[
+                            "gpu72-lucas-lehmer-trial-factor",
+                            "gpu72-double-check-trial-factor",
+                            "gpu72-lucas-lehmer-p1",
+                        ])
+                        .multiple(false)
+                        .requires("gpu72-workopts")
+                )
+                .group(
+                    ArgGroup::with_name("gpu72-worktypes")
+                        .args(&["gpu72-worktype-require-opts", "gpu72-double-check-p1"])
+                        .multiple(false)
+                )
+                .arg(
+                    Arg::with_name("gpu72-what-makes-most-sense")
+                        .visible_alias("gpu72-wmms")
+                        .long("gpu72-what-makes-most-sense")
+                        .help("Ask GPU to 72 to assign whatever makes most sense.")
+                        .conflicts_with("gpu72-double-check-p1")
+                )
+                .arg(
+                    Arg::with_name("gpu72-lowest-trial-factor-level")
+                        .visible_alias("gpu72-ltfl")
+                        .long("gpu72-lowest-trial-factor-level")
+                        .help("Request work of the lowest trial factoring level from GPU to 72")
+                        .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
+                )
+                .arg(
+                    Arg::with_name("gpu72-highest-trial-factor-level")
+                        .visible_alias("gpu72-htfl")
+                        .long("gpu72-highest-trial-factor-level")
+                        .help("Request work of the highest trial factoring level from GPU to 72")
+                        .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
+                )
+                .arg(
+                    Arg::with_name("gpu72-lowest-exponent")
+                        .visible_alias("gpu72-le")
+                        .long("gpu72-lowest-exponent")
+                        .help("Request the lowest exponent for the selected work type from GPU to 72")
+                        .conflicts_with("gpu72-double-check-p1")
+                )
+                .arg(
+                    Arg::with_name("gpu72-oldest-exponent")
+                        .visible_alias("gpu72-oe")
+                        .long("gpu72-oldest-exponent")
+                        .help("Request the oldest exponent for the selected work type from GPU to 72")
+                        .conflicts_with("gpu72-double-check-p1")
+                )
+                .arg(
+                    Arg::with_name("gpu72-double-check-already-done")
+                        .visible_alias("gpu72-dcad")
+                        .long("gpu72-double-check-already-done")
+                        .help(
+                            "Request double-check trial factoring work where a double check has already \
+                    been done from GPU to 72"
+                        )
+                        .conflicts_with_all(&[
+                            "gpu72-lucas-lehmer-trial-factor",
+                            "gpu72-lucas-lehmer-p1",
+                            "gpu72-double-check-p1",
+                        ])
+                )
+                .arg(
+                    Arg::with_name("gpu72-lone-mersenne-hunters-bit-first")
+                        .visible_alias("gpu72-lmh-bf")
+                        .long("gpu72-lone-mersenne-hunters-bit-first")
+                        .help("Request LMH bit-first work from GPU to 72")
+                        .conflicts_with_all(&[
+                            "gpu72-double-check-trial-factor",
+                            "gpu72-lucas-lehmer-p1",
+                            "gpu72-double-check-p1",
+                        ])
+                )
+                .arg(
+                    Arg::with_name("gpu72-lone-mersenne-hunters-depth-first")
+                        .visible_alias("gpu72-lmh-df")
+                        .long("gpu72-lone-mersenne-hunters-depth-first")
+                        .help("Request LMH depth-first work from GPU to 72")
+                        .conflicts_with_all(&[
+                            "gpu72-double-check-trial-factor",
+                            "gpu72-lucas-lehmer-p1",
+                            "gpu72-double-check-p1",
+                        ])
+                )
+                .arg(
+                    Arg::with_name("gpu72-let-gpu72-decide")
+                        .visible_alias("gpu72-lgpu72d")
+                        .long("gpu72-let-gpu72-decide")
+                        .help("Let GPU to 72 decide what type of work to do.")
+                        .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
+                )
+                .group(
+                    ArgGroup::with_name("gpu72-workopts")
+                        .args(&[
+                            "gpu72-what-makes-sense",
+                            "gpu72-lowest-trial-factor-level",
+                            "gpu72-highest-trial-factor-level",
+                            "gpu72-lowest-exponent",
+                            "gpu72-oldest-exponent",
+                            "gpu72-double-check-already-done",
+                            "gpu72-lone-mersenne-hunters-bit-first",
+                            "gpu72-lone-mersenne-hunters-depth-first",
+                            "gpu72-let-gpu72-decide"
+                        ])
+                        .multiple(false)
+                )
         ).get_matches_safe().map_err(|e| format!("{}", e))?;
-    if matches.is_present("gpu72-credentials") {
+    if let Some(matches) = matches.subcommand_matches("gpu72") {
         let gpu72_credentials = if matches.is_present("gpu72-userpass") {
             (
                 matches.value_of("gpu72-username").unwrap().to_string(),
@@ -656,11 +712,15 @@ fn request_from_args() -> Result<Options, String> {
             let username_path = matches.value_of("gpu72-username-file").unwrap();
             let mut username_file = BufReader::new(File::open(username_path).unwrap());
             let mut username = String::new();
-            username_file.read_to_string(&mut username);
+            username_file
+                .read_to_string(&mut username)
+                .map_err(|e| format!("Error reading username file '{}': {}", username_path, e))?;
             let password_path = matches.value_of("gpu72-password-file").unwrap();
             let mut password_file = BufReader::new(File::open(password_path).unwrap());
             let mut password = String::new();
-            password_file.read_to_string(&mut password);
+            password_file
+                .read_to_string(&mut password)
+                .map_err(|e| format!("Error reading password file '{}': {}", password_path, e))?;
             (username, password)
         };
         let fallback = matches.is_present("gpu72-fallback");
@@ -674,11 +734,15 @@ fn request_from_args() -> Result<Options, String> {
                 let username_path = matches.value_of("p95-username-file").unwrap();
                 let mut username_file = BufReader::new(File::open(username_path).unwrap());
                 let mut username = String::new();
-                username_file.read_to_string(&mut username);
+                username_file.read_to_string(&mut username).map_err(|e| {
+                    format!("Error reading username file '{}': {}", username_path, e)
+                })?;
                 let password_path = matches.value_of("p95-password-file").unwrap();
                 let mut password_file = BufReader::new(File::open(password_path).unwrap());
                 let mut password = String::new();
-                password_file.read_to_string(&mut password);
+                password_file.read_to_string(&mut password).map_err(|e| {
+                    format!("Error reading password file '{}': {}", password_path, e)
+                })?;
                 Some((username, password))
             }
         } else {
@@ -742,7 +806,7 @@ fn request_from_args() -> Result<Options, String> {
             work_type,
             general_options,
         }))
-    } else if matches.is_present("p95-credentials") {
+    } else if let Some(matches) = matches.subcommand_matches("p95") {
         let credentials = if matches.is_present("p95-userpass") {
             (
                 matches.value_of("p95-username").unwrap().to_string(),
@@ -752,11 +816,15 @@ fn request_from_args() -> Result<Options, String> {
             let username_path = matches.value_of("p95-username-file").unwrap();
             let mut username_file = BufReader::new(File::open(username_path).unwrap());
             let mut username = String::new();
-            username_file.read_to_string(&mut username);
+            username_file
+                .read_to_string(&mut username)
+                .map_err(|e| format!("Error reading username file '{}': {}", username_path, e))?;
             let password_path = matches.value_of("p95-password-file").unwrap();
             let mut password_file = BufReader::new(File::open(password_path).unwrap());
             let mut password = String::new();
-            password_file.read_to_string(&mut password);
+            password_file
+                .read_to_string(&mut password)
+                .map_err(|e| format!("Error reading password file '{}': {}", password_path, e))?;
             (username, password)
         };
         let work_directory = matches.value_of("work-directory").unwrap().to_string();
@@ -812,15 +880,9 @@ fn request_from_args() -> Result<Options, String> {
         Ok(Options::Primenet(PrimenetOptions {
             credentials,
             work_type,
-            general_options
+            general_options,
         }))
     } else {
-        Err(
-            "Missing minimum requirements: \n    \
-                - Primenet login credentials, Primenet work type, Primenet work options\n    \
-                - GPU to 72 login credentials, GPU to 72 work type, GPU to 72 work type\n        \
-                        if '--gpu72-fallback' is passed in, also include Primenet login credentials"
-            .to_string()
-        )
+        Err("No subcommand specified.".to_string())
     }
 }

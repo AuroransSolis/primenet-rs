@@ -1,4 +1,4 @@
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Gpu72WorkType {
     LucasLehmerTrialFactor(Gpu72LLTFWorkOption),
     DoubleCheckTrialFactor(Gpu72DCTFWorkOption),
@@ -8,7 +8,7 @@ pub enum Gpu72WorkType {
     DoubleCheckP1(f32),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Gpu72LLTFWorkOption {
     WhatMakesSense,
     LowestTrialFactorLevel,
@@ -20,7 +20,7 @@ pub enum Gpu72LLTFWorkOption {
     LetGpu72Decide,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Gpu72DCTFWorkOption {
     WhatMakesSense,
     LowestTrialFactorLevel,
@@ -31,7 +31,7 @@ pub enum Gpu72DCTFWorkOption {
     LetGpu72Decide,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Gpu72LLP1WorkOption {
     WhatMakesSense,
     LowestExponent,
