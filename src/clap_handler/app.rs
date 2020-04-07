@@ -33,7 +33,8 @@ pub enum Options {
 }
 
 macro_rules! map_matches {
-    ($matches:ident {
+    (
+        $matches:ident,
         $work_string_i:literal => $worktype_i:path {
             $($worktype_i_opt_string_i:literal -> $worktype_i_opt_i:expr;
             $(
@@ -41,7 +42,7 @@ macro_rules! map_matches {
             )*
             _ -> $worktype_i_opt_e:expr;)?
             $(_ -> $worktype_i_other:expr;)?
-        };
+        }
         $($work_string_ei:literal => $worktype_ei:path {
             $($worktype_ei_opt_string_i:literal -> $worktype_ei_opt_i:expr;
             $(
@@ -49,7 +50,7 @@ macro_rules! map_matches {
             )*
             _ -> $worktype_ei_opt_e:expr;)?
             $(_ -> $worktype_ei_other:expr;)?
-        };)*
+        })*
         _ => $worktype_e:path {
             $($worktype_e_opt_string_i:literal -> $worktype_e_opt_i:expr;
             $(
@@ -57,8 +58,8 @@ macro_rules! map_matches {
             )*
             _ -> $worktype_e_opt_e:expr;)?
             $(_ -> $worktype_e_other:expr;)?
-        };
-    }) => {{
+        }
+    ) => {{
         if $matches.is_present($work_string_i) {
             $($worktype_i(if $matches.is_present($worktype_i_opt_string_i) {
                 $worktype_i_opt_i
@@ -85,7 +86,7 @@ macro_rules! map_matches {
             })* else {
                 $worktype_e_opt_e
             })?
-            $($worktype_e)?
+            $($worktype_e_other)?
         }
     }}
 }
@@ -699,8 +700,9 @@ fn request_from_args() -> Result<Options, String> {
             num_cache,
             timeout,
         };
-        let work_type = map_matches!(matches {
-            "gpu72-lucas-lehmer-trial-factor" => Gpu72WorkType::LucasLemerTrialFactor {
+        let work_type = map_matches!(
+            matches,
+            "gpu72-lucas-lehmer-trial-factor" => Gpu72WorkType::LucasLehmerTrialFactor {
                 "gpu72-what-makes-sense" -> Gpu72LLTFWorkOption::WhatMakesSense;
                 "gpu72-lowest-trial-factor-level" -> Gpu72LLTFWorkOption::LowestTrialFactorLevel;
                 "gpu72-highest-trial-factor-level" -> Gpu72LLTFWorkOption::HighestTrialFactorLevel;
@@ -709,7 +711,7 @@ fn request_from_args() -> Result<Options, String> {
                 "gpu72-lone-mersenne-hunters-bit-first" -> Gpu72LLTFWorkOption::LmhBitFirst;
                 "gpu72-lone-mersenne-hunters-depth-first" -> Gpu72LLTFWorkOption::LmhDepthFirst;
                 _ -> Gpu72LLTFWorkOption::LetGpu72Decide;
-            };
+            }
             "gpu72-double-check-trial-factor" => Gpu72WorkType::DoubleCheckTrialFactor {
                 "gpu72-what-makes-sense" -> Gpu72DCTFWorkOption::WhatMakesSense;
                 "gpu72-lowest-trial-factor-level" -> Gpu72DCTFWorkOption::LowestTrialFactorLevel;
@@ -718,67 +720,21 @@ fn request_from_args() -> Result<Options, String> {
                 "gpu72-oldest-exponent" -> Gpu72DCTFWorkOption::OldestExponent;
                 "gpu72-double-check-already-done" -> Gpu72DCTFWorkOption::DoubleCheckAlreadyDone;
                 _ -> Gpu72DCTFWorkOption::LetGpu72Decide;
-            };
+            }
             "gpu72-lucas-lehmer-p1" => Gpu72WorkType::LucasLehmerP1 {
                 "gpu72-lowest-exponent" -> Gpu72LLP1WorkOption::LowestExponent;
                 "gpu72-oldest-exponent" -> Gpu72LLP1WorkOption::OldestExponent;
-                _ -> Gpu72LLP1WorkOption::WhatMakesSens;
-            };
-            _ => Gpu72WorkType::DoubleCheckP1 {
-                _ -> matches.value_of("gpu72-double-check-p1").unwrap().parse::<f32>().unwrap();
+                _ -> Gpu72LLP1WorkOption::WhatMakesSense;
             }
-        });
-        let work_type = if matches.is_present("gpu72-lucas-lehmer-trial-factor") {
-            Gpu72WorkType::LucasLehmerTrialFactor(if matches.is_present("gpu72-what-makes-sense") {
-                Gpu72LLTFWorkOption::WhatMakesSense
-            } else if matches.is_present("gpu72-lowest-trial-factor-level") {
-                Gpu72LLTFWorkOption::LowestTrialFactorLevel
-            } else if matches.is_present("gpu72-highest-trial-factor-level") {
-                Gpu72LLTFWorkOption::HighestTrialFactorLevel
-            } else if matches.is_present("gpu72-lowest-exponent") {
-                Gpu72LLTFWorkOption::LowestExponent
-            } else if matches.is_present("gpu72-oldest-exponent") {
-                Gpu72LLTFWorkOption::OldestExponent
-            } else if matches.is_present("gpu72-lone-mersenne-hunters-bit-first") {
-                Gpu72LLTFWorkOption::LmhBitFirst
-            } else if matches.is_present("gpu72-lone-mersenne-hunters-depth-first") {
-                Gpu72LLTFWorkOption::LmhDepthFirst
-            } else {
-                Gpu72LLTFWorkOption::LetGpu72Decide
-            })
-        } else if matches.is_present("gpu72-double-check-trial-factor") {
-            Gpu72WorkType::DoubleCheckTrialFactor(if matches.is_present("gpu72-what-makes-sense") {
-                Gpu72DCTFWorkOption::WhatMakesSense
-            } else if matches.is_present("gpu72-lowest-trial-factor-level") {
-                Gpu72DCTFWorkOption::LowestTrialFactorLevel
-            } else if matches.is_present("gpu72-highest-trial-factor-level") {
-                Gpu72DCTFWorkOption::HighestTrialFactorLevel
-            } else if matches.is_present("gpu72-lowest-exponent") {
-                Gpu72DCTFWorkOption::LowestExponent
-            } else if matches.is_present("gpu72-oldest-exponent") {
-                Gpu72DCTFWorkOption::OldestExponent
-            } else if matches.is_present("gpu72-double-check-already-done") {
-                Gpu72DCTFWorkOption::DoubleCheckAlreadyDone
-            } else {
-                Gpu72DCTFWorkOption::LetGpu72Decide
-            })
-        } else if matches.is_present("gpu72-lucas-lehmer-p1") {
-            Gpu72WorkType::LucasLehmerP1(if matches.is_present("gpu72-lowest-exponent") {
-                Gpu72LLP1WorkOption::LowestExponent
-            } else if matches.is_present("gpu72-oldest-exponent") {
-                Gpu72LLP1WorkOption::OldestExponent
-            } else {
-                Gpu72LLP1WorkOption::WhatMakesSense
-            })
-        } else {
-            Gpu72WorkType::DoubleCheckP1(
-                matches
-                    .value_of("gpu72-double-check-p1")
-                    .unwrap()
-                    .parse::<f32>()
-                    .unwrap(),
-            )
-        };
+            _ => Gpu72WorkType::DoubleCheckP1 {
+                _ -> Gpu72WorkType::DoubleCheckP1(
+                    matches.value_of("gpu72-double-check-p1")
+                        .unwrap()
+                        .parse::<f32>()
+                        .unwrap()
+                );
+            }
+        );
         Ok(Options::Gpu72(Gpu72Options {
             primenet_credentials,
             gpu72_credentials,
