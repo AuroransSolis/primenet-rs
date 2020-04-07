@@ -1,0 +1,214 @@
+<%
+$MODULE_NAME_ = $app_name . '/' . $api_version . '_cpu_credit.inc.php';
+if ( $DEBUG_FLAG ) print "DEBUG: MODULE $MODULE_NAME_ ($function_module) reporting<br>";
+
+
+// CPU credit - background information:
+//
+// In Primenet v4 we used a 90 MHz Pentium CPU as the benchmark machine
+// for calculating CPU credit.  The official unit of measure became the
+// P-90 CPU year.  In 2007, not many people own a plain Pentium CPU, so we
+// adopted a new benchmark machine - a single core of a 2.4 GHz Core 2 Duo.
+// Our official unit of measure became the C2GHD (Core 2 GHz Day).  That is,
+// the amount of work produced by the single core of a hypothetical
+// 1 GHz Core 2 Duo machine.  A 2.4 GHz should be able to produce 4.8 C2GHD
+// per day.
+//
+// To compare P-90 CPU years to C2GHDs, we need to factor in both the
+// the raw speed improvements of modern chips and the architectural
+// improvements of modern chips.  Examining prime95 version 24.14 benchmarks
+// for 640K to 2048K FFTs from a P100, PII-400, P4-2000, and a C2D-2400
+// and compensating for speed differences, we get the following architectural
+// multipliers:
+//
+// One core of a C2D = 1.68 P4.
+// A P4 = 3.44 PIIs
+// A PII = 1.12 Pentium
+//
+// Thus, a P-90 CPU year = 365 days * 1 C2GHD *
+//			   (90MHz / 1000MHz) / 1.68 / 3.44 / 1.12 
+//			 = 5.075 C2GHDs
+
+
+// v4 conversion
+function credit_v4_C2D_CPU_GhzDays( $v4_P90_years )
+{
+	// A P-90 CPU year = 5.075 C2D_GHzDays
+	return ( 5.075 * $v4_P90_years );
+}
+
+
+/* Return the timing (in seconds) for a single core of a hypothetical
+   1GHz Core 2 Duo to perform one LL iteration (a single squaring).
+We need to look up timing in two ways.
+1) Given an fftlen - return the timing.
+2) Given an exponent, finds the likely fftlen
+using min_exp and max_exp and return the timing.
+We need two lookups because users that manually
+reported results will not know the fftlen.
+Prime95 should always pass in the fft length.
+*/
+function credit_get_FFT_timing( $exponent, $fftlen )
+{
+	// $exponent is REQUIRED, $fftlen is PREFERRED
+	// returns NULL or float of timing found
+	
+	// try FFT length first
+	if ( $fftlen ) {
+		$t_timing = sql_select_rows_array_where(
+				't_gimps_credit_timings', "fftlen = $fftlen" );
+	}	
+	// else match by exponent range
+	if ( !$t_timing )
+		$t_timing = sql_select_rows_array_where(
+				't_gimps_credit_timings',
+				"$exponent >= min_exponent and $exponent <= max_exponent" );
+	return $t_timing[timing];
+}
+
+// An LL test (prime or composite)
+// timing / 86400 * exponent
+function credit_cpu_LL( $exponent, $fftlen )
+{
+	$timing = credit_get_FFT_timing( $exponent, $fftlen );
+	return ( $timing * $exponent / 86400.0 );
+}
+
+// ECM (whether factor found or not)
+// timing / 86400 * curves * (13.0 * B1 + 0.06 * B2)
+// Note: the user gets a slight cpu bonus when factor found in stage 1
+function credit_cpu_ECM( $exponent, $fftlen, $curves_run, $B1, $B2 )
+{
+	$timing = credit_get_FFT_timing( $exponent, $fftlen );
+	return ( $timing * $curves_run * ( 13.0 * $B1 + 0.06 * $B2) / 86400.0 );
+}
+
+// P-1 - no factor
+// timing / 86400 * (1.5 * B1 + 0.05 * B2)
+// P-1 - factor found in stage 2
+// timing / 86400 * (1.5 * B1 + 0.05 * B2)
+// P-1 - factor found in stage 1, B2 = 0
+// timing / 86400 * (1.5 * B1)
+function credit_cpu_PM1_factoring( $exponent, $fftlen, $B1, $B2 )
+{
+	$timing = credit_get_FFT_timing( $exponent, $fftlen );
+	return ( $timing * ( 1.5 * $B1 + 0.05 * $B2) / 86400.0 );
+}
+
+
+// Trial factoring needs a different timing table
+// (or else hardwire the timings in PHP code):
+//bits	tf_timing
+//----	---------
+//<=61	0.00465
+//62-63	0.00743
+//64	0.00711
+//>=65	0.00707
+function credit_get_TF_timing( $bits )
+{
+	// will later move to table maybe so we don't maintain in code
+	if ( $bits <= 61 ) return (2.4*0.00465);
+	elseif ( $bits == 62 || $bits == 63 ) return (2.4*0.00743);
+	elseif ( $bits == 64 ) return (2.4*0.00711);
+	elseif ( $bits >= 65 ) return (2.4*0.00707);
+}
+
+// Trial factoring - no factor found:
+function credit_cpu_TF_no_factor( $exponent, $sf, $ef )
+{
+	$est = 0.0;
+	for ( $i = $sf+1; $i <= $ef; $i++ ) {
+		if ($i < 48) continue;
+		$tf_timing = credit_get_TF_timing( $i );
+		$est += $tf_timing * (1 << ($i - 48)) * 1680.0 / $exponent;
+	}
+	return $est;
+}
+
+
+function credit_factor_mod_120( $factor )
+{
+	// $factor must be a string of decimal digits
+	// Chinese Remainder Theorem mod 120:
+	// m = 3, n = 40, u = -13, v = 1
+	// a = factor mod 3, b = factor mod 40
+	// m120 = factor mod 120
+	$a = 0;
+	$L = strlen($factor);
+	for ( $i = 0; $i < $L; $i++ ) {
+		$d = ord($factor{$i}) - ord('0');
+		if ( $d < 0 || $d > 9 ) return -1;	// digit check
+		$a += $d;
+	}
+	$a %= 3; // sum of digits, mod 3
+	$b = substr($factor,$L-3,3) % 40;	// right 3 digits, mod 40
+	$m120 = 40*$a - 39*$b;	// mod 120
+	while ( $m120 < 0 ) $m120 += 120;
+	return ( $m120 );
+}
+
+// approximate log2( decimal digits string )
+function credit_log2_factor( $factor )
+{
+	// $factor must be a string of decimal digits
+	$L = strlen($factor);
+	if ( $L > 6 ) {
+		$msd = substr($factor,0,6);
+		$i = log($msd,2) + 3.322*($L-6);
+	} else
+		$i = log($factor,2);
+	return ( $i );
+}
+
+// get sf value from t_gimps_factoring_effort table
+function credit_get_sf_from_exponent( $exponent )
+{
+	$t_fe = sql_select_rows_array_where( 't_gimps_factoring_effort', "exponent = $exponent" );
+	return ( $t_fe[no_factor_to_bits] );
+}
+
+// Trial factoring - factor found by prime95
+// pass = lookup (factor mod 120) in
+//		 {1,7,17,23,31,41,47,49,71,73,79,89,97,103,113,119}
+//	(pass is now integer between 0 and 15)
+// i = log2 (factor)
+// ef = sf+1;
+// assume we did (pass + (i - sf)) / 16 * credit-for-tfing-from-sf-to-ef.
+
+function credit_cpu_TF_factor_p95( $exponent, $factor, $sf )
+{
+	$fact_mod_120 = credit_factor_mod_120( $factor );
+	$passes = array( 1,7,17,23,31,41,47,49,71,73,79,89,97,103,113,119 );
+	for ( $pass = 0; $pass < count($passes); $pass++ )
+		if ( $passes[$pass] == $fact_mod_120 ) break;
+	if ( $pass == count($passes) ) return 0.0;
+	
+	$i = credit_log2_factor( $factor );
+	$floor_i = floor( $i );
+	$ef = $floor_i + 1;
+	
+	return ( credit_cpu_TF_no_factor( $exponent, $sf, $floor_i ) +
+		 ($pass + ($i - $floor_i)) / 16.0 *
+			credit_cpu_TF_no_factor( $exponent, $floor_i, $ef ) );
+}
+
+
+// Trial factoring - factor found by other client
+// Caller must get $sf from t_gimps_factoring_effort prior to calling the
+// record_common_factor_routine.  This is because recording the factor will
+// delete the t_gimps_factoring_effort row.
+// i = log2 (factor)
+// sf = trunc (i);
+// ef = sf+1;
+// assume we did (i - sf) * credit-for-tfing-from-sf-to-ef.
+
+function credit_cpu_TF_factor_other( $exponent, $factor, $sf )
+{
+	$i = credit_log2_factor( $factor );
+	$floor_i = floor( $i );
+	$ef = $floor_i + 1;
+	return ( credit_cpu_TF_no_factor( $exponent, $sf, $floor_i ) +
+		 ($i - $floor_i) * credit_cpu_TF_no_factor( $exponent, $floor_i, $ef ) );
+}
+
+%>
