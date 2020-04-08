@@ -100,54 +100,51 @@ pub fn request_from_args() -> Result<Options, String> {
         .version("1.0.0")
         .about("Interface to request from and report to Primenet (GIMPS) and GPU to 72.")
         .author("Aurorans Solis")
-        .arg(
-            Arg::with_name("work-directory")
-                .short("w")
-                .long("work-directory")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("WORKDIR")
-                .default_value(&current_dir)
-                .validator(directory_validator)
-                .help("Working directory with worktodo.txt/worktodo.ini and results.txt")
-                .global(true),
-        )
-        .arg(
-            Arg::with_name("num-cache")
-                .short("n")
-                .long("num-cache")
-                .takes_value(true)
-                .number_of_values(1)
-                .value_name("NUM_CACHE")
-                .default_value("1")
-                .validator(numeric_validator)
-                .help("Number of assignments to cache")
-                .global(true),
-        )
-        .arg(
-            Arg::with_name("timeout")
-                .short("t")
-                .long("timeout")
-                .number_of_values(1)
-                .value_name("TIMEOUT")
-                .default_value("0")
-                .validator(numeric_validator)
-                .help(
-                    "Seconds to wait between network updates. Use 0 for a single update without \
-                    looping.",
-                )
-                .global(true),
-        )
-        .group(
-            ArgGroup::with_name("general options")
-                .args(&["work-directory", "num-cache", "timeout"])
-                .multiple(true),
-        )
         .subcommand(
             SubCommand::with_name("p95")
                 .author("Aurorans Solis")
                 .version("1.0.0")
                 .about("Interface to request from and report to Primenet (GIMPS)")
+                .arg(
+                    Arg::with_name("work-directory")
+                        .short("w")
+                        .long("work-directory")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("WORKDIR")
+                        .default_value(&current_dir)
+                        .validator(directory_validator)
+                        .help("Working directory with worktodo.txt/worktodo.ini and results.txt"),
+                )
+                .arg(
+                    Arg::with_name("num-cache")
+                        .short("n")
+                        .long("num-cache")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("NUM_CACHE")
+                        .default_value("1")
+                        .validator(numeric_validator)
+                        .help("Number of assignments to cache"),
+                )
+                .arg(
+                    Arg::with_name("timeout")
+                        .short("t")
+                        .long("timeout")
+                        .number_of_values(1)
+                        .value_name("TIMEOUT")
+                        .default_value("0")
+                        .validator(numeric_validator)
+                        .help(
+                            "Seconds to wait between network updates. Use 0 for a single update without \
+                    looping.",
+                        ),
+                )
+                .group(
+                    ArgGroup::with_name("general options")
+                        .args(&["work-directory", "num-cache", "timeout"])
+                        .multiple(true),
+                )
                 .arg(
                     Arg::with_name("p95-username")
                         .long("p95-username")
@@ -451,6 +448,46 @@ pub fn request_from_args() -> Result<Options, String> {
                 .author("Aurorans Solis")
                 .version("1.0.0")
                 .about("Interface to request from and report to GPU to 72")
+                .arg(
+                    Arg::with_name("work-directory")
+                        .short("w")
+                        .long("work-directory")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("WORKDIR")
+                        .default_value(&current_dir)
+                        .validator(directory_validator)
+                        .help("Working directory with worktodo.txt/worktodo.ini and results.txt"),
+                )
+                .arg(
+                    Arg::with_name("num-cache")
+                        .short("n")
+                        .long("num-cache")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("NUM_CACHE")
+                        .default_value("1")
+                        .validator(numeric_validator)
+                        .help("Number of assignments to cache"),
+                )
+                .arg(
+                    Arg::with_name("timeout")
+                        .short("t")
+                        .long("timeout")
+                        .number_of_values(1)
+                        .value_name("TIMEOUT")
+                        .default_value("0")
+                        .validator(numeric_validator)
+                        .help(
+                            "Seconds to wait between network updates. Use 0 for a single update without \
+                    looping.",
+                        ),
+                )
+                .group(
+                    ArgGroup::with_name("general options")
+                        .args(&["work-directory", "num-cache", "timeout"])
+                        .multiple(true),
+                )
                 .arg(
                     Arg::with_name("gpu72-username")
                         .long("gpu72-username")
@@ -886,3 +923,18 @@ pub fn request_from_args() -> Result<Options, String> {
         Err("No subcommand specified.".to_string())
     }
 }
+
+/*
+Alright, so I've got some command line argument parsing stuff I'm working on, and I can't figure out
+why it's doing what it's doing. I'm trying to get the behaviour shown in the attached image, so I
+have work type arguments grouped into a `p95-worktypes` group and work options (that each conflict
+with options they're not compatible with (see center column of second table to see which one each
+option is compatible with)) grouped into a `p95-workopts` group. Each group only allows one of its
+arguments, and each group is required. However, when I run a valid type-opt pair, I get something
+like `error: The argument '--p95-trial-factoring' cannot be used with one or more of the other
+specified arguments` (for `--p95-trial-factoring` and `--p95-what-makes-most-sense`), and if I use
+an invalid pair I get something like `error: The argument '--p95-trial-factoring' cannot be used
+with '--p95-factoring-p1-small'` (for `--p95-trial-factoring` and `--p95-factoring-p1-small`).
+Furthermore, the `--work-directory` argument appears to ignore the user input. I had it print out
+the path it was using for the work directory, and it fails on
+*/
