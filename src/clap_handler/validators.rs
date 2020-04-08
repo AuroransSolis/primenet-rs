@@ -3,11 +3,6 @@ use std::fs::{read_dir, File};
 use std::path::Path;
 
 pub fn directory_validator(s: String) -> Result<(), String> {
-    let s = if s.starts_with('.') {
-        format!("{}/{}", current_dir().unwrap().display(), s)
-    } else {
-        s
-    };
     let path = Path::new(&s);
     if path.exists() {
         if path.is_dir() {
@@ -26,14 +21,15 @@ pub fn directory_validator(s: String) -> Result<(), String> {
                     let mut has_worktodo_ini = false;
                     let mut has_results_txt = false;
                     for file in &files {
-                        if (has_results_txt || has_worktodo_ini) && has_results_txt {
+                        if (has_worktodo_txt || has_worktodo_ini) && has_results_txt {
                             break;
                         } else {
-                            match file.as_str() {
-                                "worktodo.txt" => has_worktodo_txt = true,
-                                "worktodo.ini" => has_worktodo_ini = true,
-                                "results.txt" => has_results_txt = true,
-                                _ => {}
+                            if file.ends_with("worktodo.txt") {
+                                has_worktodo_txt = true;
+                            } else if file.ends_with("worktodo.ini") {
+                                has_worktodo_ini = true;
+                            } else if file.ends_with("results.txt") {
+                                has_results_txt = true;
                             }
                         }
                     }
@@ -43,8 +39,8 @@ pub fn directory_validator(s: String) -> Result<(), String> {
                             "Directory '{}' missing worktodo.txt/worktodo.ini and results.txt",
                             s
                         )),
-                        (false, true) => Err(format!("Directory '{}' missing results.txt", s)),
-                        (true, false) => Err(format!(
+                        (true, false) => Err(format!("Directory '{}' missing results.txt", s)),
+                        (false, true) => Err(format!(
                             "Directory '{}' missing worktodo.txt/worktodo.ini",
                             s
                         )),
@@ -88,11 +84,6 @@ pub fn p95_username_validator(s: String) -> Result<(), String> {
 }
 
 pub fn file_validator(s: String) -> Result<(), String> {
-    let s = if s.starts_with('.') {
-        format!("{}/{}", current_dir().unwrap().display(), s)
-    } else {
-        s
-    };
     let path = Path::new(&s);
     if path.exists() {
         if path.is_file() {
