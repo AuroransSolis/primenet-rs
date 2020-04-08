@@ -30,7 +30,7 @@ pub enum PrimenetOP1FOption {
 #[derive(Copy, Clone, Debug)]
 pub enum PrimenetEFOption {
     WhatMakesMostSense,
-    SmallishEcm,
+    SmallishMecm,
     FermatEcm,
     CunninghamEcm,
 }
@@ -40,8 +40,8 @@ pub enum PrimenetLLFTTOption {
     WhatMakesMostSense,
     LlFirstTimeTest,
     LlWorldRecord,
-    Ll10mDigit,
-    Ll100mDigit,
+    Ll10mDigits,
+    Ll100mDigits,
     LlFirstTimeNoTrialOrP1,
 }
 

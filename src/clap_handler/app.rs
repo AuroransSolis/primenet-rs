@@ -1,7 +1,7 @@
 use super::gpu72_work::*;
 use super::p95_work::*;
 use super::validators::*;
-use clap::{App, Arg, ArgGroup, SubCommand};
+use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
 use std::env::current_dir;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -94,6 +94,55 @@ macro_rules! map_matches {
     }}
 }
 
+const P95_TYPES_AND_OPTS_HELP: &'static str = r"Primenet work types and options:
+    - Trial factoring                        --p95-trial-factoring
+        - What makes most sense                  --p95-what-makes-most-sense
+        - Factoring trial LMH                    --p95-factoring-lmh
+        - Factoring trial (sieve)                --p95-factoring-trial-sieve
+    - P-1 factoring                          --p95-p1-factoring
+        - What makes most sense                  --p95-what-makes-most-sense
+        - Factoring P-1 small                    --p95-factoring-p1-small
+    - Optimal P-1 factoring                  --p95-optimal-p1-factoring
+        - What makes most sense                  --p95-what-makes-most-sense
+        - Factoring P-1 large                    --p95-factoring-p1-large
+    - ECM factoring                          --p95-ecm-factoring
+        - What makes most sense                  --p95-what-makes-most-sense
+        - Factoring ECM smallish Mersenne        --p95-smallish-mersenne-ecm
+        - Factoring Fermat ECM                   --p95-fermat-ecm
+        - Factoring Cunningham ECM               --p95-cunningham-ecm
+    - Lucas-Lehmer first-time test           --p95-lucas-lehmer-first-time
+        - What makes most sense                  --p95-what-makes-most-sense
+        - Lucas-Lehmer first-time test           --p95-lucas-lehmer-first-time-test
+        - Lucas-Lehmer test world-record         --p95-lucas-lehmer-world-record
+        - Lucas-Lehmer test 10M digits           --p95-lucas-lehmer-10m-digits
+        - Lucas-Lehmer test 100M digits          --p95-lucas-lehmer-100m-digits
+    - Lucas-Lehmer double-check              --p95-lucas-lehmer-double-check
+        - What makes most sense                  --p95-what-makes-most-sense
+        - Lucas-Lehmer double-check              --p95-lucas-lehmer-double-check-test";
+
+const GPU72_TYPES_AND_OPTS_HELP: &'static str = r"GPU to 72 work types and options:
+    - Lucas-Lehmer trial factoring             --gpu72-lucas-lehmer-trial-factor
+        - What makes sense                         --gpu72-what-makes-sense
+        - Lowest trial factor level                --gpu72-lowest-trial-factor-level
+        - Highest trial factor level               --gpu72-highest-trial-factor-level
+        - Lowest exponent                          --gpu72-lowest-exponent
+        - Oldest exponent                          --gpu72-oldest-exponent
+        - Lone Mersenne Hunters bit-first          --gpu72-lone-mersenne-hunters-bit-first
+        - Lone Mersenne Hunters depth-first        --gpu72-lone-mersenne-hunters-depth-first
+        - Let GPU to 72 decide                     --gpu72-let-gpu72-decide
+    - Double-check trial factoring             --gpu72-double-check-trial-factor
+        - What makes sense                         --gpu72-what-makes-sense
+        - Lowest trial factor level                --gpu72-lowest-trial-factor-level
+        - Highest trial factor level               --gpu72-highest-trial-factor-level
+        - Lowest exponent                          --gpu72-lowest-exponent
+        - Oldest exponent                          --gpu72-oldest-exponent
+        - Double-check already done                --gpu72-double-check-already-done
+        - Let GPU to 72 decide                     --gpu72-let-gpu72-decide
+    - Lucas-Lehmer P-1 factoring               --gpu72-lucas-lehmer-p1
+        - What makes sense                         --gpu72-what-makes-sense
+        - Lowest exponent                          --gpu72-lowest-exponent
+        - Oldest exponent                          --gpu72-oldest-exponent";
+
 pub fn request_from_args() -> Result<Options, String> {
     let current_dir = format!("{}", current_dir().unwrap().display());
     let matches = App::new("primenet-rs")
@@ -105,6 +154,7 @@ pub fn request_from_args() -> Result<Options, String> {
                 .author("Aurorans Solis")
                 .version("1.0.0")
                 .about("Interface to request from and report to Primenet (GIMPS)")
+                .after_help(P95_TYPES_AND_OPTS_HELP)
                 .arg(
                     Arg::with_name("work-directory")
                         .short("w")
@@ -306,9 +356,9 @@ pub fn request_from_args() -> Result<Options, String> {
                         ]),
                 )
                 .arg(
-                    Arg::with_name("p95-smallish-ecm")
-                        .visible_alias("p95-secm")
-                        .long("p95-smallish-ecm")
+                    Arg::with_name("p95-smallish-mersenne-ecm")
+                        .visible_alias("p95-smecm")
+                        .long("p95-smallish-mersenne-ecm")
                         .help("Request smallish ECM factoring work from Primenet")
                         .conflicts_with_all(&[
                             "p95-trial-factoring",
@@ -358,7 +408,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         ]),
                 )
                 .arg(
-                    Arg::with_name("p95-lucas-lehmer-double-check")
+                    Arg::with_name("p95-lucas-lehmer-double-check-test")
                         .visible_alias("p95-ll-dc")
                         .long("p95-lucas-lehmer-double-check")
                         .help("Request LL double-check tests from Primenet")
@@ -384,9 +434,9 @@ pub fn request_from_args() -> Result<Options, String> {
                         ]),
                 )
                 .arg(
-                    Arg::with_name("p95-lucas-lehmer-10m-digit")
+                    Arg::with_name("p95-lucas-lehmer-10m-digits")
                         .visible_alias("p95-ll-10md")
-                        .long("p95-lucas-lehmer-10m-digit")
+                        .long("p95-lucas-lehmer-10m-digits")
                         .help("Request LL 10M digit tests from Primenet")
                         .conflicts_with_all(&[
                             "p95-trial-factoring",
@@ -397,9 +447,9 @@ pub fn request_from_args() -> Result<Options, String> {
                         ]),
                 )
                 .arg(
-                    Arg::with_name("p95-lucas-lehmer-100m-digit")
+                    Arg::with_name("p95-lucas-lehmer-100m-digits")
                         .visible_alias("p95-ll-100md")
-                        .long("p95-lucas-lehmer-100m-digit")
+                        .long("p95-lucas-lehmer-100m-digits")
                         .help("Request LL 100M digit tests from Primenet")
                         .conflicts_with_all(&[
                             "p95-trial-factoring",
@@ -430,14 +480,14 @@ pub fn request_from_args() -> Result<Options, String> {
                             "p95-factoring-trial-sieve",
                             "p95-factoring-p1-small",
                             "p95-factoring-p1-large",
-                            "p95-smallish-ecm",
+                            "p95-smallish-mersenne-ecm",
                             "p95-fermat-ecm",
                             "p95-cunningham-ecm",
                             "p95-lucas-lehmer-first-time-test",
-                            "p95-lucas-lehmer-double-check",
+                            "p95-lucas-lehmer-double-check-test",
                             "p95-lucas-lehmer-world-record",
-                            "p95-lucas-lehmer-10m-digit",
-                            "p95-lucas-lehmer-100m-digit",
+                            "p95-lucas-lehmer-10m-digits",
+                            "p95-lucas-lehmer-100m-digits",
                             "p95-lucas-lehmer-no-trial-or-p1",
                         ])
                         .multiple(false),
@@ -448,6 +498,7 @@ pub fn request_from_args() -> Result<Options, String> {
                 .author("Aurorans Solis")
                 .version("1.0.0")
                 .about("Interface to request from and report to GPU to 72")
+                .after_help(GPU72_TYPES_AND_OPTS_HELP)
                 .arg(
                     Arg::with_name("work-directory")
                         .short("w")
@@ -897,7 +948,7 @@ pub fn request_from_args() -> Result<Options, String> {
             }
             "p95-ecm-factoring" => PrimenetWorkType::EcmFactoring {
                 "p95-what-makes-most-sense" -> PrimenetEFOption::WhatMakesMostSense;
-                "p95-smallish-ecm" -> PrimenetEFOption::SmallishEcm;
+                "p95-smallish-mersenne-ecm" -> PrimenetEFOption::SmallishMecm;
                 "p95-fermat-ecm" -> PrimenetEFOption::FermatEcm;
                 _ -> PrimenetEFOption::CunninghamEcm;
             }
@@ -905,8 +956,8 @@ pub fn request_from_args() -> Result<Options, String> {
                 "p95-what-makes-most-sense" -> PrimenetLLFTTOption::WhatMakesMostSense;
                 "p95-lucas-lehmer-first-time-test" -> PrimenetLLFTTOption::LlFirstTimeTest;
                 "p95-lucas-lehmer-world-record" -> PrimenetLLFTTOption::LlWorldRecord;
-                "p95-lucas-lehmer-10m-digit" -> PrimenetLLFTTOption::Ll10mDigit;
-                "p95-lucas-lehmer-100m-digit" -> PrimenetLLFTTOption::Ll100mDigit;
+                "p95-lucas-lehmer-10m-digits" -> PrimenetLLFTTOption::Ll10mDigits;
+                "p95-lucas-lehmer-100m-digits" -> PrimenetLLFTTOption::Ll100mDigits;
                 _ -> PrimenetLLFTTOption::LlFirstTimeNoTrialOrP1;
             }
             _ => PrimenetWorkType::LlDoubleCheck {
