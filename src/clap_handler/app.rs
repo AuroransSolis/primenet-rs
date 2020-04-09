@@ -203,7 +203,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("USERNAME")
                         .validator(p95_username_validator)
-                        .help("Primenet username"),
+                        .help("Primenet username")
+                        .required_unless("p95-username-file"),
                 )
                 .arg(
                     Arg::with_name("p95-username-file")
@@ -212,13 +213,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
-                        .help("Path to file containing Primenet username"),
-                )
-                .group(
-                    ArgGroup::with_name("p95-user")
-                        .args(&["p95-username", "p95-password"])
-                        .multiple(false)
-                        .required(true)
+                        .help("Path to file containing Primenet username")
+                        .required_unless("p95-username"),
                 )
                 .arg(
                     Arg::with_name("p95-password")
@@ -226,7 +222,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .takes_value(true)
                         .number_of_values(1)
                         .value_name("PASSWORD")
-                        .help("Primenet password"),
+                        .help("Primenet password")
+                        .required_unless("p95-password-file"),
                 )
                 .arg(
                     Arg::with_name("p95-password-file")
@@ -235,20 +232,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
-                        .help("Path to file containing Primenet password"),
-                )
-                .group(
-                    ArgGroup::with_name("p95-pass")
-                        .args(&["p95-password", "p95-password-file"])
-                        .multiple(false)
-                        .required(true)
-                )
-                .group(
-                    ArgGroup::with_name("p95-credentials")
-                        .args(&["p95-user", "p95-pass"])
-                        .multiple(true)
-                        .required(true)
-                        .requires_all(&["p95-user", "p95-pass"]),
+                        .help("Path to file containing Primenet password")
+                        .required_unless("p95-password"),
                 )
                 .arg(
                     Arg::with_name("p95-trial-factoring")
