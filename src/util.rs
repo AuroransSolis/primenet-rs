@@ -4,7 +4,10 @@ use crate::clap_handler::{
     p95_work::PrimenetWorkType,
 };
 use regex::Regex;
-use reqwest::blocking::{Client, ClientBuilder};
+use reqwest::{
+    blocking::{Client, ClientBuilder},
+    header::{self, HeaderMap, HeaderValue},
+};
 use std::error::Error;
 use std::fs::{remove_file, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Error as IoError, ErrorKind, Read, Result as IoResult, Write};
@@ -12,11 +15,12 @@ use std::path::Path;
 use std::str::from_utf8;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+use reqwest::header::CONTENT_LENGTH;
 
 // Work validation regex
 const WVR: &str = r"((DoubleCheck|Test|PRP)\s*=\s*([0-9A-F]){32}(,[0-9]+){3}((,-?[0-9]+){3,5})?)$";
 
-const P95_LOGIN_ADDR: &str = "https://www.mersenne.org/default.php";
+const P95_LOGIN_ADDR: &str = "https://www.mersenne.org/";
 const P95_REQUEST_ADDR: &str = "https://www.mersenne.org/manual_assignment/";
 const GPU72_BASE_ADDR: &str = "https://www.gpu72.com/";
 
@@ -72,11 +76,10 @@ fn read_list_lock(file_path: &Path, lockfile_path: &Path) -> IoResult<Vec<String
 }
 
 fn primenet_login(client: &Client, username: &str, password: &str) -> Result<(), String> {
-    let result = client
-        .post(P95_LOGIN_ADDR)
-        .query(&[("user_login", username), ("user_password", password)])
+    let result = client.post(P95_LOGIN_ADDR)
+        .form(&[("user_login", username), ("user_password", password)])
         .send()
-        .map_err(|e| format!("Failed to log in to Primenet. Error: {}", e))?;
+        .map_err(|e| format!("Failed to send login attempt to Primenet. Error: {}", e))?;
     let status = result.status().as_u16();
     if status == 200 {
         let url = result.url().clone();
@@ -89,6 +92,7 @@ fn primenet_login(client: &Client, username: &str, password: &str) -> Result<(),
             println!("Failed to log in to Primenet.");
             println!("Login URL: {}", url);
             println!("Request status code: {}", status);
+            println!("Login response: {}", result_text);
             Err("Login failed.".to_string())
         }
     } else {
@@ -97,6 +101,7 @@ fn primenet_login(client: &Client, username: &str, password: &str) -> Result<(),
             result.url(),
             status
         );
+        println!("Failure response: {:?}", result.text());
         Err("Login failed.".to_string())
     }
 }
@@ -143,69 +148,80 @@ fn primenet_request(
     } else {
         let worktype = format!("{}", work_info.value());
         let num_to_get = format!("{}", num_to_cache - workfile_contents.len());
-        let response_text = client
+        let response = client
             .post(P95_REQUEST_ADDR)
-            .query(&[
+            .form(&[
                 ("cores", "1"),
                 ("num_to_get", &num_to_get),
                 ("pref", &worktype),
                 ("exp_lo", ""),
                 ("exp_hi", ""),
+                ("B1", "Get+Assignments")
             ])
             .send()
-            .map_err(|e| format!("Failed to make work request to Primenet. Error: {}", e))?
-            .text()
+            .map_err(|e| format!("Failed to make work request to Primenet. Error: {}", e))?;
+        let status = response.status().as_u16();
+        let url = response.url().clone();
+        let response_text = response.text()
             .map_err(|e| format!("Failed to read response text from Primenet. Error: {}", e))?;
-        let work_validation_regex =
-            Regex::new(WVR).expect("Failed to build regex for task validation");
-        let captured_strings = work_validation_regex
-            .captures_iter(&response_text)
-            .map(|captures| captures.get(0).map(|m| m.as_str().to_string()))
-            .collect::<Vec<_>>();
-        let validated_jobs = captured_strings
-            .into_iter()
-            .filter(|cap| cap.is_some())
-            .map(|cap| cap.unwrap())
-            .collect::<Vec<_>>();
-        // On any errors below until everything is written, show what hasn't yet been written and
-        // ask the user to add it themselves.
-        let mut list_file = BufWriter::new(
-            OpenOptions::new()
-                .append(true)
-                .open(worktodo_path)
-                .map_err(|e| {
-                    error_msg_with_jobs(e, "Failed to open worktodo file.", &validated_jobs)
-                })?,
-        );
-        for i in 0..validated_jobs.len() {
-            list_file.write_all(&[b'\n']).map_err(|e| {
-                error_msg_with_jobs(e, "Failed to write to worktodo file.", &validated_jobs[i..])
-            })?;
-            list_file
-                .write_all(validated_jobs[i].as_bytes())
-                .map_err(|e| {
-                    error_msg_with_jobs(
-                        e,
-                        "Failed to write to worktodo file.",
-                        &validated_jobs[i..],
-                    )
+        if status == 200 {
+            println!("Got response from query to URL: {}", url);
+            println!("Got work request response: {}", response_text);
+            let work_validation_regex =
+                Regex::new(WVR).expect("Failed to build regex for task validation");
+            let captured_strings = work_validation_regex
+                .captures_iter(&response_text)
+                .map(|captures| captures.get(0).map(|m| m.as_str().to_string()))
+                .collect::<Vec<_>>();
+            let validated_jobs = captured_strings
+                .into_iter()
+                .filter(|cap| cap.is_some())
+                .map(|cap| cap.unwrap())
+                .collect::<Vec<_>>();
+            println!("Validated jobs: {:?}", validated_jobs);
+            // On any errors below until everything is written, show what hasn't yet been written and
+            // ask the user to add it themselves.
+            let mut list_file = BufWriter::new(
+                OpenOptions::new()
+                    .append(true)
+                    .open(worktodo_path)
+                    .map_err(|e| {
+                        error_msg_with_jobs(e, "Failed to open worktodo file.", &validated_jobs)
+                    })?,
+            );
+            for i in 0..validated_jobs.len() {
+                list_file.write_all(&[b'\n']).map_err(|e| {
+                    error_msg_with_jobs(e, "Failed to write to worktodo file.", &validated_jobs[i..])
                 })?;
+                list_file
+                    .write_all(validated_jobs[i].as_bytes())
+                    .map_err(|e| {
+                        error_msg_with_jobs(
+                            e,
+                            "Failed to write to worktodo file.",
+                            &validated_jobs[i..],
+                        )
+                    })?;
+            }
+            list_file.flush().map_err(|e| {
+                error_msg_with_unwritten(
+                    e,
+                    "Failed to flush buffered reader to worktodo file.",
+                    from_utf8(list_file.buffer()).unwrap(),
+                )
+            })?;
+            // Everything should be written to the file now, so we should be safe not to include it in
+            // the error message.
+            remove_file(worktodo_lock_path).map_err(|e| {
+                format!(
+                    "Failed to remove lockfile after writing new jobs to it. Error: {}",
+                    e
+                )
+            })?;
+        } else {
+            println!("Failed to request work from Primenet. Status: {}", status);
+            println!("Response text: {}", response_text);
         }
-        list_file.flush().map_err(|e| {
-            error_msg_with_unwritten(
-                e,
-                "Failed to flush buffered reader to worktodo file.",
-                from_utf8(list_file.buffer()).unwrap(),
-            )
-        })?;
-        // Everything should be written to the file now, so we should be safe not to include it in
-        // the error message.
-        remove_file(worktodo_lock_path).map_err(|e| {
-            format!(
-                "Failed to remove lockfile after writing new jobs to it. Error: {}",
-                e
-            )
-        })?;
         Ok(())
     }
 }
@@ -226,6 +242,7 @@ pub fn primenet_runtime(primenet_options: PrimenetOptions) -> Result<(), String>
         .build()
         .map_err(|e| format!("Failed to build web client. Error: {}", e))?;
     primenet_login(&client, &username, &password)?;
+    println!("Successfully logged into Primenet.");
     let worktodo_txt_path = Path::new(&work_directory).join(Path::new("worktodo.txt"));
     let worktodo_ini_path = Path::new(&work_directory).join(Path::new("worktodo.ini"));
     let (worktodo_path, worktodo_lock_path) = if worktodo_txt_path.exists() {
@@ -239,6 +256,10 @@ pub fn primenet_runtime(primenet_options: PrimenetOptions) -> Result<(), String>
             Path::new(&work_directory).join(Path::new("worktodo.ini.lck")),
         )
     };
+    let results = Path::new(&work_directory).join(Path::new("results.txt"));
+    println!("Using worktodo path: {}", worktodo_path.display());
+    println!("Using worktodo_lock path: {}", worktodo_lock_path.display());
+    println!("Using results path: {}", results.display());
     if timeout == 0 {
         primenet_request(
             &client,
