@@ -974,18 +974,3 @@ pub fn request_from_args() -> Result<Options, String> {
         Err("No subcommand specified.".to_string())
     }
 }
-
-/*
-Alright, so I've got some command line argument parsing stuff I'm working on, and I can't figure out
-why it's doing what it's doing. I'm trying to get the behaviour shown in the attached image, so I
-have work type arguments grouped into a `p95-worktypes` group and work options (that each conflict
-with options they're not compatible with (see center column of second table to see which one each
-option is compatible with)) grouped into a `p95-workopts` group. Each group only allows one of its
-arguments, and each group is required. However, when I run a valid type-opt pair, I get something
-like `error: The argument '--p95-trial-factoring' cannot be used with one or more of the other
-specified arguments` (for `--p95-trial-factoring` and `--p95-what-makes-most-sense`), and if I use
-an invalid pair I get something like `error: The argument '--p95-trial-factoring' cannot be used
-with '--p95-factoring-p1-small'` (for `--p95-trial-factoring` and `--p95-factoring-p1-small`).
-Furthermore, the `--work-directory` argument appears to ignore the user input. I had it print out
-the path it was using for the work directory, and it fails on
-*/
