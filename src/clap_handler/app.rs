@@ -672,18 +672,6 @@ pub fn request_from_args() -> Result<Options, String> {
                         .long("gpu72-lucas-lehmer-p1")
                         .help("Request LL P-1 work from GPU to 72")
                 )
-                .arg(
-                    Arg::with_name("gpu72-double-check-p1")
-                        .visible_alias("gpu72-dcp1")
-                        .long("gpu72-double-check-p1")
-                        .takes_value(true)
-                        .number_of_values(1)
-                        .value_name("EFFORT")
-                        .default_value("2.0")
-                        .validator(f32_validator)
-                        .help("Request double-check P-1 ork from GPU to 72. Note: effort below 1.0 \
-                            is pointless.")
-                )
                 .group(
                     ArgGroup::with_name("gpu72-worktype-require-opts")
                         .args(&[
@@ -879,18 +867,10 @@ pub fn request_from_args() -> Result<Options, String> {
                 "gpu72-double-check-already-done" -> Gpu72DCTFWorkOption::DoubleCheckAlreadyDone;
                 _ -> Gpu72DCTFWorkOption::LetGpu72Decide;
             }
-            "gpu72-lucas-lehmer-p1" => Gpu72WorkType::LucasLehmerP1 {
+            _ => Gpu72WorkType::LucasLehmerP1 {
                 "gpu72-lowest-exponent" -> Gpu72LLP1WorkOption::LowestExponent;
                 "gpu72-oldest-exponent" -> Gpu72LLP1WorkOption::OldestExponent;
                 _ -> Gpu72LLP1WorkOption::WhatMakesSense;
-            }
-            _ => Gpu72WorkType::DoubleCheckP1 {
-                _ -> Gpu72WorkType::DoubleCheckP1(
-                    matches.value_of("gpu72-double-check-p1")
-                        .unwrap()
-                        .parse::<f32>()
-                        .unwrap()
-                );
             }
         );
         Ok(Options::Gpu72(Gpu72Options {

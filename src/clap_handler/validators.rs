@@ -105,9 +105,3 @@ pub fn gpu72_username_validator(s: String) -> Result<(), String> {
         Err(format!("Username '{}' is not ASCII.", s))
     }
 }
-
-pub fn f32_validator(s: String) -> Result<(), String> {
-    s.parse::<f32>()
-        .map(|_| ())
-        .map_err(|e| format!("Invalid f32: '{}'. Details: {}", s, e))
-}

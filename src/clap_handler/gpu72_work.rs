@@ -3,9 +3,6 @@ pub enum Gpu72WorkType {
     LucasLehmerTrialFactor(Gpu72LLTFWorkOption),
     DoubleCheckTrialFactor(Gpu72DCTFWorkOption),
     LucasLehmerP1(Gpu72LLP1WorkOption),
-    // Guessing on the data type for this one. It's not apparent to me whether this should be a f32,
-    // f64, or String going off the webpage source.
-    DoubleCheckP1(f32),
 }
 
 #[derive(Copy, Clone, Debug)]
