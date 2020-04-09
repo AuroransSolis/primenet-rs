@@ -552,19 +552,6 @@ pub fn request_from_args() -> Result<Options, String> {
                         .help("GPU to 72 username"),
                 )
                 .arg(
-                    Arg::with_name("gpu72-password")
-                        .long("gpu72-password")
-                        .takes_value(true)
-                        .number_of_values(1)
-                        .value_name("PASSWORD")
-                        .help("GPU to 72 password"),
-                )
-                .group(
-                    ArgGroup::with_name("gpu72-userpass")
-                        .args(&["gpu72-username", "gpu72-password"])
-                        .multiple(true),
-                )
-                .arg(
                     Arg::with_name("gpu72-username-file")
                         .long("gpu72-username-file")
                         .takes_value(true)
@@ -572,6 +559,20 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("FILE_PATH")
                         .validator(file_validator)
                         .help("Path to file containing GPU to 72 username"),
+                )
+                .group(
+                    ArgGroup::with_name("gpu72-user")
+                        .args(&["gpu72-username", "gpu72-username-file"])
+                        .multiple(false)
+                        .required(true)
+                )
+                .arg(
+                    Arg::with_name("gpu72-password")
+                        .long("gpu72-password")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("PASSWORD")
+                        .help("GPU to 72 password"),
                 )
                 .arg(
                     Arg::with_name("gpu72-password-file")
@@ -583,18 +584,17 @@ pub fn request_from_args() -> Result<Options, String> {
                         .help("Path to file containing GPU to 72 password"),
                 )
                 .group(
-                    ArgGroup::with_name("gpu72-userpass-files")
-                        .args(&["gpu72-username-file", "gpu72-password-file"])
-                        .multiple(true),
+                    ArgGroup::with_name("gpu72-pass")
+                        .args(&["gpu72-password", "gpu72-password-file"])
+                        .multiple(false)
+                        .required(true),
                 )
                 .group(
                     ArgGroup::with_name("gpu72-credentials")
-                        .args(&[
-                            "gpu72-userpass",
-                            "gpu72-userpass-files",
-                        ])
-                        .multiple(false)
-                        .required(true),
+                        .args(&["gpu72-user", "gpu72-pass"])
+                        .multiple(true)
+                        .required(true)
+                        .requires_all(&["gpu72-user", "gpu72-pass"]),
                 )
                 .arg(
                     Arg::with_name("p95-username")
@@ -606,19 +606,6 @@ pub fn request_from_args() -> Result<Options, String> {
                         .help("Primenet username"),
                 )
                 .arg(
-                    Arg::with_name("p95-password")
-                        .long("p95-password")
-                        .takes_value(true)
-                        .number_of_values(1)
-                        .value_name("PASSWORD")
-                        .help("Primenet password"),
-                )
-                .group(
-                    ArgGroup::with_name("p95-userpass")
-                        .args(&["p95-username", "p95-password"])
-                        .multiple(true),
-                )
-                .arg(
                     Arg::with_name("p95-username-file")
                         .long("p95-username-file")
                         .takes_value(true)
@@ -626,6 +613,19 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("FILE_PATH")
                         .validator(file_validator)
                         .help("Path to file containing Primenet username"),
+                )
+                .group(
+                    ArgGroup::with_name("p95-user")
+                        .args(&["p95-username", "p95-password"])
+                        .multiple(false)
+                )
+                .arg(
+                    Arg::with_name("p95-password")
+                        .long("p95-password")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("PASSWORD")
+                        .help("Primenet password"),
                 )
                 .arg(
                     Arg::with_name("p95-password-file")
@@ -637,17 +637,15 @@ pub fn request_from_args() -> Result<Options, String> {
                         .help("Path to file containing Primenet password"),
                 )
                 .group(
-                    ArgGroup::with_name("p95-userpass-files")
-                        .args(&["p95-username-file", "p95-password-file"])
-                        .multiple(true),
+                    ArgGroup::with_name("p95-pass")
+                        .args(&["p95-password", "p95-password-file"])
+                        .multiple(false)
                 )
                 .group(
                     ArgGroup::with_name("p95-credentials")
-                        .args(&[
-                            "p95-userpass",
-                            "p95-userpass-files",
-                        ])
-                        .multiple(false),
+                        .args(&["p95-user", "p95-pass"])
+                        .multiple(true)
+                        .requires_all(&["p95-user", "p95-pass"]),
                 )
                 .arg(
                     Arg::with_name("gpu72-fallback")
