@@ -1,11 +1,16 @@
 use crate::clap_handler::{app::Options, gpu72_work::Gpu72WorkType, p95_work::PrimenetWorkType};
-use std::fs::{remove_file, File};
+use std::fs::{remove_file, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Error as IoError, ErrorKind, Read, Result as IoResult, Write};
 use std::path::Path;
 
 fn lock_file(filename: &str) -> IoResult<()> {
     let lockfile_name = format!("{}.lck", filename);
-    let _ = File::create(&lockfile_name)?;
+    let _ = OpenOptions::new()
+        .read(true)
+        .write(true)
+        // Essentially like opening with O_EXCL
+        .create_new(true)
+        .open(&lockfile_name)?;
     Ok(())
 }
 
