@@ -1,4 +1,3 @@
-use std::env::current_dir;
 use std::fs::{read_dir, File};
 use std::path::Path;
 
