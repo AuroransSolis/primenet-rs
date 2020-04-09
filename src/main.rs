@@ -11,7 +11,7 @@ fn main() {
             println!("Successfully parsed command line arguments.");
             match o {
                 Options::Primenet(primenet_options) => {
-                    primenet_runtime(primenet_options).expect("Primenet runtime returned an error.")
+                    primenet_runtime(primenet_options).expect("Primenet runtime returned an error:\n")
                 }
                 Options::Gpu72(_) => println!("GPU to 72 not supported yet."),
             }
