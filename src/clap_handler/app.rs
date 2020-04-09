@@ -1,32 +1,32 @@
 use super::gpu72_work::*;
 use super::p95_work::*;
 use super::validators::*;
-use clap::{App, AppSettings, Arg, ArgGroup, SubCommand};
+use clap::{App, Arg, ArgGroup, SubCommand};
 use std::env::current_dir;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
 #[derive(Debug)]
 pub struct GeneralOptions {
-    work_directory: String,
-    num_cache: usize,
-    timeout: usize,
+    pub work_directory: String,
+    pub num_cache: usize,
+    pub timeout: usize,
 }
 
 #[derive(Debug)]
 pub struct PrimenetOptions {
-    credentials: (String, String),
-    work_type: PrimenetWorkType,
-    general_options: GeneralOptions,
+    pub credentials: (String, String),
+    pub work_type: PrimenetWorkType,
+    pub general_options: GeneralOptions,
 }
 
 #[derive(Debug)]
 pub struct Gpu72Options {
-    primenet_credentials: Option<(String, String)>,
-    gpu72_credentials: (String, String),
-    fallback: bool,
-    work_type: Gpu72WorkType,
-    general_options: GeneralOptions,
+    pub primenet_credentials: Option<(String, String)>,
+    pub gpu72_credentials: (String, String),
+    pub fallback: bool,
+    pub work_type: Gpu72WorkType,
+    pub general_options: GeneralOptions,
 }
 
 #[derive(Debug)]
@@ -186,8 +186,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .default_value("0")
                         .validator(numeric_validator)
                         .help(
-                            "Seconds to wait between network updates. Use 0 for a single update without \
-                    looping.",
+                            "Seconds to wait between network updates. Use 0 for a single update \
+                                without looping.",
                         ),
                 )
                 .group(
@@ -246,7 +246,8 @@ pub fn request_from_args() -> Result<Options, String> {
                             "p95-userpass",
                             "p95-userpass-files",
                         ])
-                        .multiple(false),
+                        .multiple(false)
+                        .required(true),
                 )
                 .arg(
                     Arg::with_name("p95-trial-factoring")
@@ -295,7 +296,7 @@ pub fn request_from_args() -> Result<Options, String> {
                             "p95-lucas-lehmer-double-check",
                         ])
                         .multiple(false)
-                        .requires("p95-workopts"),
+                        .required(true),
                 )
                 .arg(
                     Arg::with_name("p95-what-makes-most-sense")
@@ -463,7 +464,8 @@ pub fn request_from_args() -> Result<Options, String> {
                     Arg::with_name("p95-lucas-lehmer-no-trial-or-p1")
                         .visible_alias("p95-ll-ntop1")
                         .long("p95-lucas-lehmer-no-trial-or-p1")
-                        .help("Request LL first time tests with no trial or P-1 factoring from Primenet")
+                        .help("Request LL first time tests with no trial or P-1 factoring from \
+                            Primenet")
                         .conflicts_with_all(&[
                             "p95-trial-factoring",
                             "p95-p1-factoring",
@@ -490,7 +492,8 @@ pub fn request_from_args() -> Result<Options, String> {
                             "p95-lucas-lehmer-100m-digits",
                             "p95-lucas-lehmer-no-trial-or-p1",
                         ])
-                        .multiple(false),
+                        .multiple(false)
+                        .required(true),
                 )
         )
         .subcommand(
@@ -530,8 +533,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .default_value("0")
                         .validator(numeric_validator)
                         .help(
-                            "Seconds to wait between network updates. Use 0 for a single update without \
-                    looping.",
+                            "Seconds to wait between network updates. Use 0 for a single update \
+                                without looping.",
                         ),
                 )
                 .group(
@@ -591,7 +594,7 @@ pub fn request_from_args() -> Result<Options, String> {
                             "gpu72-userpass-files",
                         ])
                         .multiple(false)
-                        .requires("gpu72-work"),
+                        .required(true),
                 )
                 .arg(
                     Arg::with_name("p95-username")
@@ -649,7 +652,8 @@ pub fn request_from_args() -> Result<Options, String> {
                 .arg(
                     Arg::with_name("gpu72-fallback")
                         .long("gpu72-fallback")
-                        .help("Fall back to Primenet if requests to GPU to 72 fail or it has no work")
+                        .help("Fall back to Primenet if requests to GPU to 72 fail or it has no \
+                            work")
                         .requires("p95-credentials"),
                 )
                 .arg(
@@ -679,7 +683,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("EFFORT")
                         .default_value("2.0")
                         .validator(f32_validator)
-                        .help("Request double-check P-1 ork from GPU to 72. Note: effort below 1.0 is pointless.")
+                        .help("Request double-check P-1 ork from GPU to 72. Note: effort below 1.0 \
+                            is pointless.")
                 )
                 .group(
                     ArgGroup::with_name("gpu72-worktype-require-opts")
@@ -689,7 +694,7 @@ pub fn request_from_args() -> Result<Options, String> {
                             "gpu72-lucas-lehmer-p1",
                         ])
                         .multiple(false)
-                        .requires("gpu72-workopts")
+                        .required(true)
                 )
                 .group(
                     ArgGroup::with_name("gpu72-worktypes")
@@ -721,14 +726,16 @@ pub fn request_from_args() -> Result<Options, String> {
                     Arg::with_name("gpu72-lowest-exponent")
                         .visible_alias("gpu72-le")
                         .long("gpu72-lowest-exponent")
-                        .help("Request the lowest exponent for the selected work type from GPU to 72")
+                        .help("Request the lowest exponent for the selected work type from GPU \
+                            to 72")
                         .conflicts_with("gpu72-double-check-p1")
                 )
                 .arg(
                     Arg::with_name("gpu72-oldest-exponent")
                         .visible_alias("gpu72-oe")
                         .long("gpu72-oldest-exponent")
-                        .help("Request the oldest exponent for the selected work type from GPU to 72")
+                        .help("Request the oldest exponent for the selected work type from GPU \
+                            to 72")
                         .conflicts_with("gpu72-double-check-p1")
                 )
                 .arg(
@@ -736,8 +743,8 @@ pub fn request_from_args() -> Result<Options, String> {
                         .visible_alias("gpu72-dcad")
                         .long("gpu72-double-check-already-done")
                         .help(
-                            "Request double-check trial factoring work where a double check has already \
-                    been done from GPU to 72"
+                            "Request double-check trial factoring work where a double check has \
+                            already been done from GPU to 72"
                         )
                         .conflicts_with_all(&[
                             "gpu72-lucas-lehmer-trial-factor",
@@ -788,6 +795,7 @@ pub fn request_from_args() -> Result<Options, String> {
                             "gpu72-let-gpu72-decide"
                         ])
                         .multiple(false)
+                        .required(true)
                 )
         ).get_matches_safe().map_err(|e| format!("{}", e))?;
     if let Some(matches) = matches.subcommand_matches("gpu72") {
