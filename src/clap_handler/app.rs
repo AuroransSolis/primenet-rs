@@ -698,12 +698,14 @@ pub fn request_from_args() -> Result<Options, String> {
             username_file
                 .read_to_string(&mut username)
                 .map_err(|e| format!("Error reading username file '{}': {}", username_path, e))?;
+            let username = username.trim().to_string();
             let password_path = matches.value_of("gpu72-password-file").unwrap();
             let mut password_file = BufReader::new(File::open(password_path).unwrap());
             let mut password = String::new();
             password_file
                 .read_to_string(&mut password)
                 .map_err(|e| format!("Error reading password file '{}': {}", password_path, e))?;
+            let password = password.trim().to_string();
             (username, password)
         };
         let fallback = matches.is_present("gpu72-fallback");
@@ -720,12 +722,14 @@ pub fn request_from_args() -> Result<Options, String> {
                 username_file.read_to_string(&mut username).map_err(|e| {
                     format!("Error reading username file '{}': {}", username_path, e)
                 })?;
+                let username = username.trim().to_string();
                 let password_path = matches.value_of("p95-password-file").unwrap();
                 let mut password_file = BufReader::new(File::open(password_path).unwrap());
                 let mut password = String::new();
                 password_file.read_to_string(&mut password).map_err(|e| {
                     format!("Error reading password file '{}': {}", password_path, e)
                 })?;
+                let password = password.trim().to_string();
                 Some((username, password))
             }
         } else {
@@ -794,12 +798,14 @@ pub fn request_from_args() -> Result<Options, String> {
             username_file
                 .read_to_string(&mut username)
                 .map_err(|e| format!("Error reading username file '{}': {}", username_path, e))?;
+            let username = username.trim().to_string();
             let password_path = matches.value_of("p95-password-file").unwrap();
             let mut password_file = BufReader::new(File::open(password_path).unwrap());
             let mut password = String::new();
             password_file
                 .read_to_string(&mut password)
                 .map_err(|e| format!("Error reading password file '{}': {}", password_path, e))?;
+            let password = password.trim().to_string();
             (username, password)
         };
         let work_directory = matches.value_of("work-directory").unwrap().to_string();
