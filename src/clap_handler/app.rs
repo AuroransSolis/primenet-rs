@@ -151,14 +151,14 @@ pub fn request_from_args() -> Result<Options, String> {
         .about("Interface to request from and report to Primenet (GIMPS) and GPU to 72.")
         .author("Aurorans Solis")
         .subcommand(
-            SubCommand::with_name("p95")
+            App::new("p95")
                 .author("Aurorans Solis")
                 .version("1.0.0")
                 .about("Interface to request from and report to Primenet (GIMPS)")
                 .after_help(P95_TYPES_AND_OPTS_HELP)
                 .arg(
                     Arg::with_name("work-directory")
-                        .short("w")
+                        .short('w')
                         .long("work-directory")
                         .takes_value(true)
                         .number_of_values(1)
@@ -169,7 +169,7 @@ pub fn request_from_args() -> Result<Options, String> {
                 )
                 .arg(
                     Arg::with_name("num-cache")
-                        .short("n")
+                        .short('n')
                         .long("num-cache")
                         .takes_value(true)
                         .number_of_values(1)
@@ -180,7 +180,7 @@ pub fn request_from_args() -> Result<Options, String> {
                 )
                 .arg(
                     Arg::with_name("timeout")
-                        .short("t")
+                        .short('t')
                         .long("timeout")
                         .number_of_values(1)
                         .value_name("TIMEOUT")
@@ -413,14 +413,14 @@ pub fn request_from_args() -> Result<Options, String> {
                 )
         )
         .subcommand(
-            SubCommand::with_name("gpu72")
+            App::new("gpu72")
                 .author("Aurorans Solis")
                 .version("1.0.0")
                 .about("Interface to request from and report to GPU to 72")
                 .after_help(GPU72_TYPES_AND_OPTS_HELP)
                 .arg(
                     Arg::with_name("work-directory")
-                        .short("w")
+                        .short('w')
                         .long("work-directory")
                         .takes_value(true)
                         .number_of_values(1)
@@ -431,7 +431,7 @@ pub fn request_from_args() -> Result<Options, String> {
                 )
                 .arg(
                     Arg::with_name("num-cache")
-                        .short("n")
+                        .short('n')
                         .long("num-cache")
                         .takes_value(true)
                         .number_of_values(1)
@@ -442,7 +442,7 @@ pub fn request_from_args() -> Result<Options, String> {
                 )
                 .arg(
                     Arg::with_name("timeout")
-                        .short("t")
+                        .short('t')
                         .long("timeout")
                         .number_of_values(1)
                         .value_name("TIMEOUT")
@@ -713,7 +713,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .multiple(false)
                         .required(true)
                 )
-        ).get_matches_safe().map_err(|e| format!("{}", e))?;
+        ).try_get_matches().map_err(|e| format!("{}", e))?;
     if let Some(matches) = matches.subcommand_matches("gpu72") {
         let gpu72_credentials = if matches.is_present("gpu72-userpass") {
             (
