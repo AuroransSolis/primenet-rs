@@ -5,13 +5,13 @@ use std::path::Path;
 
 fn lock_file(filename: &str) -> IoResult<()> {
     let lockfile_name = format!("{}.lck", filename);
-    let _ = OpenOptions::new()
+    OpenOptions::new()
         .read(true)
         .write(true)
         // Essentially like opening with O_EXCL
         .create_new(true)
-        .open(&lockfile_name)?;
-    Ok(())
+        .open(&lockfile_name)
+        .map(|_| ())
 }
 
 fn unlock_file(filename: &str) -> IoResult<()> {
