@@ -2,7 +2,7 @@ use super::gpu72_work::*;
 use super::lists::*;
 use super::p95_work::*;
 use super::validators::*;
-use clap::{App, Arg, ArgGroup, SubCommand};
+use clap::{App, Arg, ArgGroup};
 use std::env::current_dir;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -95,31 +95,22 @@ macro_rules! map_matches {
     }}
 }
 
-const P95_TYPES_AND_OPTS_HELP: &'static str = r"Primenet work types and options:
-    - Trial factoring                        --p95-trial-factoring
-        - What makes most sense                  --p95-what-makes-most-sense
-        - Factoring trial LMH                    --p95-factoring-lmh
-        - Factoring trial (sieve)                --p95-factoring-trial-sieve
-    - P-1 factoring                          --p95-p1-factoring
-        - What makes most sense                  --p95-what-makes-most-sense
-        - Factoring P-1 small                    --p95-factoring-p1-small
-    - Optimal P-1 factoring                  --p95-optimal-p1-factoring
-        - What makes most sense                  --p95-what-makes-most-sense
-        - Factoring P-1 large                    --p95-factoring-p1-large
-    - ECM factoring                          --p95-ecm-factoring
-        - What makes most sense                  --p95-what-makes-most-sense
-        - Factoring ECM smallish Mersenne        --p95-smallish-mersenne-ecm
-        - Factoring Fermat ECM                   --p95-fermat-ecm
-        - Factoring Cunningham ECM               --p95-cunningham-ecm
-    - Lucas-Lehmer first-time test           --p95-lucas-lehmer-first-time
-        - What makes most sense                  --p95-what-makes-most-sense
-        - Lucas-Lehmer first-time test           --p95-lucas-lehmer-first-time-test
-        - Lucas-Lehmer test world-record         --p95-lucas-lehmer-world-record
-        - Lucas-Lehmer test 10M digits           --p95-lucas-lehmer-10m-digits
-        - Lucas-Lehmer test 100M digits          --p95-lucas-lehmer-100m-digits
-    - Lucas-Lehmer double-check              --p95-lucas-lehmer-double-check
-        - What makes most sense                  --p95-what-makes-most-sense
-        - Lucas-Lehmer double-check              --p95-lucas-lehmer-double-check-test";
+macro_rules! map_matches_simple {
+    (
+        $matches:ident,
+        $work_string_i:literal => $worktype_i_path:path;
+        $($work_string_ei:literal => $worktype_ei_path:path;)*
+        _ => $worktype_e_path:path;
+    ) => {{
+        if $matches.is_present($work_string_i) {
+            $worktype_i_path
+        } $(else if $matches.is_present($work_string_ei) {
+            $worktype_ei_path
+        })* else {
+            $worktype_e_path
+        }
+    }}
+}
 
 const GPU72_TYPES_AND_OPTS_HELP: &'static str = r"GPU to 72 work types and options:
     - Lucas-Lehmer trial factoring             --gpu72-lucas-lehmer-trial-factor
@@ -155,7 +146,6 @@ pub fn request_from_args() -> Result<Options, String> {
                 .author("Aurorans Solis")
                 .version("1.0.0")
                 .about("Interface to request from and report to Primenet (GIMPS)")
-                .after_help(P95_TYPES_AND_OPTS_HELP)
                 .arg(
                     Arg::with_name("work-directory")
                         .short('w')
@@ -197,204 +187,151 @@ pub fn request_from_args() -> Result<Options, String> {
                         .multiple(true),
                 )
                 .arg(
-                    Arg::with_name("p95-username")
+                    Arg::with_name("username")
                         .long("p95-username")
                         .takes_value(true)
                         .number_of_values(1)
                         .value_name("USERNAME")
                         .validator(p95_username_validator)
                         .help("Primenet username")
-                        .required_unless("p95-username-file"),
+                        .required_unless("username-file"),
                 )
                 .arg(
-                    Arg::with_name("p95-username-file")
+                    Arg::with_name("username-file")
                         .long("p95-username-file")
                         .takes_value(true)
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
                         .help("Path to file containing Primenet username")
-                        .required_unless("p95-username"),
+                        .required_unless("username"),
                 )
                 .arg(
-                    Arg::with_name("p95-password")
+                    Arg::with_name("password")
                         .long("p95-password")
                         .takes_value(true)
                         .number_of_values(1)
                         .value_name("PASSWORD")
                         .help("Primenet password")
-                        .required_unless("p95-password-file"),
+                        .required_unless("password-file"),
                 )
                 .arg(
-                    Arg::with_name("p95-password-file")
+                    Arg::with_name("password-file")
                         .long("p95-password-file")
                         .takes_value(true)
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
                         .help("Path to file containing Primenet password")
-                        .required_unless("p95-password"),
+                        .required_unless("password"),
                 )
                 .arg(
-                    Arg::with_name("p95-trial-factoring")
-                        .visible_alias("p95-tf")
-                        .long("p95-trial-factoring")
+                    Arg::with_name("trial-factoring")
+                        .long("trial-factoring")
+                        .visible_alias("tf")
                         .help("Request trial factoring work from Primenet")
-                        .required_unless_one(&P95TF_LIST)
-                        .conflicts_with_all(&P95TF_LIST),
                 )
                 .arg(
-                    Arg::with_name("p95-p1-factoring")
-                        .visible_alias("p95-p1")
-                        .long("p95-p1-factoring")
+                    Arg::with_name("p1-factoring")
+                        .long("p1-factoring")
+                        .visible_alias("p1f")
                         .help("Request P-1 factoring work from Primenet")
-                        .required_unless_one(&P95P1F_LIST)
-                        .conflicts_with_all(&P95P1F_LIST),
                 )
                 .arg(
-                    Arg::with_name("p95-optimal-p1-factoring")
-                        .visible_alias("p95-op1")
-                        .long("p95-optimal-p1-factoring")
-                        .help("Request optimal P-1 factoring work from Primenet")
-                        .required_unless_one(&P95OP1F_LIST)
-                        .conflicts_with_all(&P95OP1F_LIST),
+                    Arg::with_name("ecm-factoring")
+                        .long("ecm-factoring")
+                        .visible_alias("ecmf")
+                        .help("Request Elliptic Curve Method factoring work from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-ecm-factoring")
-                        .visible_alias("p95-ecm")
-                        .long("p95-ecm-factoring")
-                        .help("Request ECM factoring work from Primenet")
-                        .required_unless_one(&P95ECMF_LIST)
-                        .conflicts_with_all(&P95ECMF_LIST),
+                    Arg::with_name("ecm-factoring-of-mersenne-cofactors")
+                        .long("ecm-factoring-of-mersenne-cofactors")
+                        .visible_alias("ecmfomc")
+                        .help(
+                            "Request Elliptic Curve Method factoring of Mersenne cofactors work \
+                            from Primenet"
+                        )
                 )
                 .arg(
-                    Arg::with_name("p95-lucas-lehmer-first-time")
-                        .visible_alias("p95-llft")
-                        .long("p95-lucas-lehmer-first-time")
-                        .help("Request LL first time work from Primenet")
-                        .required_unless_one(&P95LLFT_LIST)
-                        .conflicts_with_all(&P95LLFT_LIST),
+                    Arg::with_name("smallest-available-first-time-ll")
+                        .long("smallest-available-first-time-ll")
+                        .visible_alias("saftll")
+                        .help("Request smallest available first-time Lucas-Lehmer work from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-lucas-lehmer-double-check")
-                        .visible_alias("p95-lldc")
-                        .long("p95-lucas-lehmer-double-check")
-                        .help("Request LL double-check work from Primenet")
-                        .required_unless_one(&P95LLDC_LIST)
-                        .conflicts_with_all(&P95LLDC_LIST),
+                    Arg::with_name("double-check-ll")
+                        .long("double-check-ll")
+                        .visible_alias("dcll")
+                        .help("Request Lucas-Lehmer double-check work from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-what-makes-most-sense")
-                        .visible_alias("p95-wmms")
-                        .long("p95-what-makes-most-sense")
-                        .help("Ask Primenet to assign whatever makes most sense")
-                        .required_unless_one(&P95WMMS_LIST)
-                        .conflicts_with_all(&P95WMMS_LIST),
+                    Arg::with_name("world-record-ll")
+                        .long("world-record-ll")
+                        .visible_alias("wrll")
+                        .help("Request world record-sized Lucas-Lehmer tests from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-factoring-lmh")
-                        .visible_alias("p95-flmh")
-                        .long("p95-factoring-lmh")
-                        .help("Request factoring LFH work from Primenet")
-                        .required_unless_one(&P95FLMH_LIST)
-                        .conflicts_with_all(&P95FLMH_LIST),
+                    Arg::with_name("100m-digits-ll")
+                        .long("100m-digits-ll")
+                        .visible_alias("100mdll")
+                        .help("Request 100M digits Lucas-Lehmer tests from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-factoring-trial-sieve")
-                        .visible_alias("p95-fts")
-                        .long("p95-factoring-trial-sieve")
-                        .help("Request factoring trail (sieve) work from Primenet")
-                        .required_unless_one(&P95FTS_LIST)
-                        .conflicts_with_all(&P95FTS_LIST),
+                    Arg::with_name("smallest-available-first-time-prp")
+                        .long("smallest-available-first-time-prp")
+                        .visible_alias("saftprp")
+                        .help("Request smallest available probable prime work from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-factoring-p1-small")
-                        .visible_alias("p95-fp1s")
-                        .long("p95-factoring-p1-small")
-                        .help("Request small P-1 factoring work from Primenet")
-                        .required_unless_one(&P95FP1S_LIST)
-                        .conflicts_with_all(&P95FP1S_LIST),
+                    Arg::with_name("double-check-prp")
+                        .long("double-check-prp")
+                        .visible_alias("dcprp")
+                        .help("Request double-check of probable prime work from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-factoring-p1-large")
-                        .visible_alias("p95-fp1l")
-                        .long("p95-factoring-p1-large")
-                        .help("Request large P-1 factoring work from Primenet")
-                        .required_unless_one(&P95FP1L_LIST)
-                        .conflicts_with_all(&P95FP1L_LIST),
+                    Arg::with_name("world-record-prp")
+                        .long("world-record-prp")
+                        .visible_alias("wrprp")
+                        .help("Request world record-sized probable prime work from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-smallish-mersenne-ecm")
-                        .visible_alias("p95-smecm")
-                        .long("p95-smallish-mersenne-ecm")
-                        .help("Request smallish ECM factoring work from Primenet")
-                        .required_unless_one(&P95SMECM_LIST)
-                        .conflicts_with_all(&P95SMECM_LIST),
+                    Arg::with_name("100m-digits-prp")
+                        .long("100m-digits-prp")
+                        .visible_alias("100mdprp")
+                        .help("Request 100M digits probable prime tests from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-fermat-ecm")
-                        .visible_alias("p95-fecm")
-                        .long("p95-fermat-ecm")
-                        .help("Request Fermat ECM factoring work from Primenet")
-                        .required_unless_one(&P95FECM_LIST)
-                        .conflicts_with_all(&P95FECM_LIST),
+                    Arg::with_name("first-prp-on-mersenne-cofactors")
+                        .long("first-prp-on-mersenne-cofactors")
+                        .visible_alias("fprpomc")
+                        .help("Request first PRP tests on Mersenne cofactors from Primenet")
                 )
                 .arg(
-                    Arg::with_name("p95-cunningham-ecm")
-                        .visible_alias("p95-cecm")
-                        .long("p95-cunningham-ecm")
-                        .help("Request Cunningham ECM factoring work from Primenet")
-                        .required_unless_one(&P95CECM_LIST)
-                        .conflicts_with_all(&P95CECM_LIST),
+                    Arg::with_name("double-check-prp-on-mersenne-cofactors")
+                        .long("double-check-prp-on-mersenne-cofactors")
+                        .visible_alias("dcprpomc")
+                        .help("Request double-checks of PRP tests on Mersenne cofactors from Primenet")
                 )
-                .arg(
-                    Arg::with_name("p95-lucas-lehmer-first-time-test")
-                        .visible_alias("p95-ll-ft")
-                        .long("p95-lucas-lehmer-first-time-test")
-                        .help("Request LL first time tests from Primenet")
-                        .required_unless_one(&P95LLFTT_LIST)
-                        .conflicts_with_all(&P95LLFTT_LIST),
-                )
-                .arg(
-                    Arg::with_name("p95-lucas-lehmer-double-check-test")
-                        .visible_alias("p95-ll-dc")
-                        .long("p95-lucas-lehmer-double-check")
-                        .help("Request LL double-check tests from Primenet")
-                        .required_unless_one(&P95LLDCT_LIST)
-                        .conflicts_with_all(&P95LLDCT_LIST),
-                )
-                .arg(
-                    Arg::with_name("p95-lucas-lehmer-world-record")
-                        .visible_alias("p95-ll-wr")
-                        .long("p95-lucas-lehmer-world-record")
-                        .help("Request LL world record tests from Primenet")
-                        .required_unless_one(&P95LLWR_LIST)
-                        .conflicts_with_all(&P95LLWR_LIST),
-                )
-                .arg(
-                    Arg::with_name("p95-lucas-lehmer-10m-digits")
-                        .visible_alias("p95-ll-10md")
-                        .long("p95-lucas-lehmer-10m-digits")
-                        .help("Request LL 10M digit tests from Primenet")
-                        .required_unless_one(&P95LL10MD_LIST)
-                        .conflicts_with_all(&P95LL10MD_LIST),
-                )
-                .arg(
-                    Arg::with_name("p95-lucas-lehmer-100m-digits")
-                        .visible_alias("p95-ll-100md")
-                        .long("p95-lucas-lehmer-100m-digits")
-                        .help("Request LL 100M digit tests from Primenet")
-                        .required_unless_one(&P95LL100MD_LIST)
-                        .conflicts_with_all(&P95LL100MD_LIST),
-                )
-                .arg(
-                    Arg::with_name("p95-lucas-lehmer-no-trial-or-p1")
-                        .visible_alias("p95-ll-ntop1")
-                        .long("p95-lucas-lehmer-no-trial-or-p1")
-                        .help("Request LL first time tests with no trial or P-1 factoring from \
-                            Primenet")
-                        .required_unless_one(&P95LLNTOP1_LIST)
-                        .conflicts_with_all(&P95LLNTOP1_LIST),
+                .group(
+                    ArgGroup::with_name("worktype")
+                        .args(&[
+                            "trial-factoring",
+                            "p1-factoring",
+                            "ecm-factoring",
+                            "ecm-factoring-of-mersenne-cofactors",
+                            "smallest-available-first-time-ll",
+                            "double-check-ll",
+                            "world-record-ll",
+                            "100m-digits-ll",
+                            "smallest-available-first-time-prp",
+                            "double-check-prp",
+                            "world-record-prp",
+                            "100m-digits-prp",
+                            "first-prp-on-mersenne-cofactors",
+                            "double-check-prp-on-mersenne-cofactors",
+                        ])
+                        .required(true)
+                        .multiple(false)
                 )
         )
         .subcommand(
@@ -786,28 +723,29 @@ pub fn request_from_args() -> Result<Options, String> {
             general_options,
         }))
     } else if let Some(matches) = matches.subcommand_matches("p95") {
-        let credentials = if matches.is_present("p95-userpass") {
-            (
-                matches.value_of("p95-username").unwrap().to_string(),
-                matches.value_of("p95-password").unwrap().to_string(),
-            )
+        let username = if matches.is_present("username") {
+            matches.value_of("username").unwrap().to_string()
         } else {
-            let username_path = matches.value_of("p95-username-file").unwrap();
+            let username_path = matches.value_of("username-file").unwrap();
             let mut username_file = BufReader::new(File::open(username_path).unwrap());
             let mut username = String::new();
             username_file
                 .read_to_string(&mut username)
                 .map_err(|e| format!("Error reading username file '{}': {}", username_path, e))?;
-            let username = username.trim().to_string();
-            let password_path = matches.value_of("p95-password-file").unwrap();
+            username.trim().to_string()
+        };
+        let password = if matches.is_present("password") {
+            matches.value_of("password").unwrap().to_string()
+        } else {
+            let password_path = matches.value_of("password-file").unwrap();
             let mut password_file = BufReader::new(File::open(password_path).unwrap());
             let mut password = String::new();
             password_file
                 .read_to_string(&mut password)
                 .map_err(|e| format!("Error reading password file '{}': {}", password_path, e))?;
-            let password = password.trim().to_string();
-            (username, password)
+            password.trim().to_string()
         };
+        let credentials = (username, password);
         let work_directory = matches.value_of("work-directory").unwrap().to_string();
         let num_cache = matches
             .value_of("num-cache")
@@ -824,39 +762,25 @@ pub fn request_from_args() -> Result<Options, String> {
             num_cache,
             timeout,
         };
-        let work_type = map_matches!(
+        let work_type = map_matches_simple!(
             matches,
-            "p95-trial-factoring" => PrimenetWorkType::TrialFactoring {
-                "p95-what-makes-most-sense" -> PrimenetTFOption::WhatMakesMostSense;
-                "p95-factoring-lmh" -> PrimenetTFOption::FactoringLmh;
-                _ -> PrimenetTFOption::FactoringTrialSieve;
-            }
-            "p95-p1-factoring" => PrimenetWorkType::P1Factoring {
-                "p95-what-makes-most-sense" -> PrimenetP1FOption::WhatMakesMostSense;
-                _ -> PrimenetP1FOption::FactoringP1Small;
-            }
-            "p95-optimal-p1-factoring" => PrimenetWorkType::OptimalP1Factoring {
-                "p95-what-makes-most-sense" -> PrimenetOP1FOption::WhatMakesMostSense;
-                _ -> PrimenetOP1FOption::FactoringP1Large;
-            }
-            "p95-ecm-factoring" => PrimenetWorkType::EcmFactoring {
-                "p95-what-makes-most-sense" -> PrimenetEFOption::WhatMakesMostSense;
-                "p95-smallish-mersenne-ecm" -> PrimenetEFOption::SmallishMecm;
-                "p95-fermat-ecm" -> PrimenetEFOption::FermatEcm;
-                _ -> PrimenetEFOption::CunninghamEcm;
-            }
-            "p95-lucas-lehmer-first-time" => PrimenetWorkType::LlFirstTimeTest {
-                "p95-what-makes-most-sense" -> PrimenetLLFTTOption::WhatMakesMostSense;
-                "p95-lucas-lehmer-first-time-test" -> PrimenetLLFTTOption::LlFirstTimeTest;
-                "p95-lucas-lehmer-world-record" -> PrimenetLLFTTOption::LlWorldRecord;
-                "p95-lucas-lehmer-10m-digits" -> PrimenetLLFTTOption::Ll10mDigits;
-                "p95-lucas-lehmer-100m-digits" -> PrimenetLLFTTOption::Ll100mDigits;
-                _ -> PrimenetLLFTTOption::LlFirstTimeNoTrialOrP1;
-            }
-            _ => PrimenetWorkType::LlDoubleCheck {
-                "p95-what-makes-most-sense" -> PrimenetLLDCOption::WhatMakesMostSense;
-                _ -> PrimenetLLDCOption::LlDoubleCheck;
-            }
+            "trial-factoring" => PrimenetWorkType::TrialFactoring;
+            "p1-factoring" => PrimenetWorkType::P1Factoring;
+            "ecm-factoring" => PrimenetWorkType::EcmFactoring;
+            "ecm-factoring-of-mersenne-cofactors" =>
+                PrimenetWorkType::EcmFactoringOfMersenneCofactors;
+            "smallest-available-first-time-ll" =>
+                PrimenetWorkType::SmallestAvailableFirstTimeLlTests;
+            "double-check-ll" => PrimenetWorkType::DoubleCheckLlTests;
+            "world-record-ll" => PrimenetWorkType::WorldRecordLlTests;
+            "100m-digits-ll" => PrimenetWorkType::HundredMillionDigitsLlTests;
+            "smallest-available-first-time-prp" =>
+                PrimenetWorkType::SmallestAvailableFirstTimePrpTests;
+            "double-check-prp" => PrimenetWorkType::DoubleCheckPrpTests;
+            "world-record-prp" => PrimenetWorkType::WorldRecordPrpTests;
+            "100m-digits-prp" => PrimenetWorkType::HundredMillionDigitsPrpTests;
+            "first-prp-on-mersenne-cofactors" => PrimenetWorkType::FirstPrpTestsOnMersenneCofactors;
+            _ => PrimenetWorkType::DoubleCheckPrpTestsOnMersenneCofactors;
         );
         Ok(Options::Primenet(PrimenetOptions {
             credentials,
