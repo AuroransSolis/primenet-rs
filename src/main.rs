@@ -1,8 +1,10 @@
 mod clap_handler;
+mod gpu72_runtime;
+mod primenet_runtime;
 mod util;
 
-use clap_handler::app::{request_from_args, Options};
-use util::primenet_runtime;
+use clap_handler::app::{Options, request_from_args};
+use primenet_runtime::primenet_runtime;
 
 fn main() {
     match request_from_args() {

@@ -1,0 +1,1 @@
+const GPU72_BASE_ADDR: &str = "https://www.gpu72.com/";
