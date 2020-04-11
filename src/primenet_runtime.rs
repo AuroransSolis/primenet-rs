@@ -74,14 +74,16 @@ fn primenet_request(
     } else {
         let worktype = work_info.as_str();
         let num_to_get = format!("{}", num_to_cache - workfile_contents.len());
-        // Formatting the request address myself since reqwest can't figure out how to do it right
-        // or something. Great job.
-        let request_address = format!(
-            "{}cores=1&num_to_get={}&pref={}&exp_lo=&exp_hi=&B1=Get%2BAssignments",
-            P95_REQUEST_ADDR, num_to_get, worktype
-        );
         let response = client
-            .get(&request_address)
+            .get(P95_REQUEST_ADDR)
+            .query(&[
+                ("cores", "1"),
+                ("num_to_get", &num_to_get),
+                ("pref", worktype),
+                ("exp_lo", ""),
+                ("exp_hi", ""),
+                ("B1", "Get+Assignments")
+            ])
             .send()
             .map_err(|e| format!("Failed to make work request to Primenet. Error: {}", e))?;
         let status = response.status().as_u16();
