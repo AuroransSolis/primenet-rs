@@ -21,7 +21,8 @@ const P95_LOGIN_ADDR: &str = "https://www.mersenne.org/";
 const P95_REQUEST_ADDR: &str = "https://www.mersenne.org/manual_assignment/?";
 
 fn primenet_login(client: &Client, username: &str, password: &str) -> Result<(), String> {
-    let result = client.post(P95_LOGIN_ADDR)
+    let result = client
+        .post(P95_LOGIN_ADDR)
         .form(&[("user_login", username), ("user_password", password)])
         .send()
         .map_err(|e| format!("Failed to send login attempt to Primenet. Error: {}", e))?;
@@ -82,12 +83,13 @@ fn primenet_request(
                 ("pref", worktype),
                 ("exp_lo", ""),
                 ("exp_hi", ""),
-                ("B1", "Get+Assignments")
+                ("B1", "Get+Assignments"),
             ])
             .send()
             .map_err(|e| format!("Failed to make work request to Primenet. Error: {}", e))?;
         let status = response.status().as_u16();
-        let response_text = response.text()
+        let response_text = response
+            .text()
             .map_err(|e| format!("Failed to read response text from Primenet. Error: {}", e))?;
         if status == 200 {
             println!("Got work request response.");
@@ -121,7 +123,11 @@ fn primenet_request(
                         )
                     })?;
                 list_file.write_all(&[b'\n']).map_err(|e| {
-                    error_msg_with_jobs(e, "Failed to write to worktodo file.", &validated_jobs[i..])
+                    error_msg_with_jobs(
+                        e,
+                        "Failed to write to worktodo file.",
+                        &validated_jobs[i..],
+                    )
                 })?;
             }
             list_file.flush().map_err(|e| {
@@ -152,11 +158,11 @@ pub fn primenet_runtime(primenet_options: PrimenetOptions) -> Result<(), String>
         credentials: (username, password),
         work_type,
         general_options:
-        GeneralOptions {
-            work_directory,
-            num_cache,
-            timeout,
-        },
+            GeneralOptions {
+                work_directory,
+                num_cache,
+                timeout,
+            },
     } = primenet_options;
     let client = ClientBuilder::default()
         .cookie_store(true)
