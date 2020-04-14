@@ -102,6 +102,15 @@ fn primenet_request(
                 .map(|captures| captures[0].to_string())
                 .collect::<Vec<_>>();
             println!("Validated jobs: {:?}", validated_jobs);
+            if validated_jobs.len() == 0 {
+                println!("WARNING!");
+                println!(
+                    "Received work request response but failed to find any valid jobs in it. You \n\
+                    may want to check your Primenet account to see if any work has been \n\
+                    reserved, and if so, add it to your worktodo file manually."
+                );
+                return Ok(());
+            }
             // On any errors below until everything is written, show what hasn't yet been written and
             // ask the user to add it themselves.
             let mut list_file = BufWriter::new(
