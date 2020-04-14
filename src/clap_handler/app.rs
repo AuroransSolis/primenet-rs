@@ -155,7 +155,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("WORKDIR")
                         .default_value(&current_dir)
                         .validator(directory_validator)
-                        .help("Working directory with worktodo.txt/worktodo.ini and results.txt"),
+                        .help("Working directory with worktodo.txt/worktodo.ini and results.txt")
                 )
                 .arg(
                     Arg::with_name("num-cache")
@@ -166,7 +166,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("NUM_CACHE")
                         .default_value("1")
                         .validator(numeric_validator)
-                        .help("Number of assignments to cache"),
+                        .help("Number of assignments to cache")
                 )
                 .arg(
                     Arg::with_name("timeout")
@@ -178,13 +178,13 @@ pub fn request_from_args() -> Result<Options, String> {
                         .validator(numeric_validator)
                         .help(
                             "Seconds to wait between network updates. Use 0 for a single update \
-                                without looping.",
+                                without looping."
                         ),
                 )
                 .group(
                     ArgGroup::with_name("general options")
                         .args(&["work-directory", "num-cache", "timeout"])
-                        .multiple(true),
+                        .multiple(true)
                 )
                 .arg(
                     Arg::with_name("username")
@@ -194,7 +194,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("USERNAME")
                         .validator(p95_username_validator)
                         .help("Primenet username")
-                        .required_unless("username-file"),
+                        .required_unless("username-file")
                 )
                 .arg(
                     Arg::with_name("username-file")
@@ -204,7 +204,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("FILE_PATH")
                         .validator(file_validator)
                         .help("Path to file containing Primenet username")
-                        .required_unless("username"),
+                        .required_unless("username")
                 )
                 .arg(
                     Arg::with_name("password")
@@ -213,7 +213,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("PASSWORD")
                         .help("Primenet password")
-                        .required_unless("password-file"),
+                        .required_unless("password-file")
                 )
                 .arg(
                     Arg::with_name("password-file")
@@ -223,7 +223,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("FILE_PATH")
                         .validator(file_validator)
                         .help("Path to file containing Primenet password")
-                        .required_unless("password"),
+                        .required_unless("password")
                 )
                 .arg(
                     Arg::with_name("trial-factoring")
@@ -349,7 +349,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("WORKDIR")
                         .default_value(&current_dir)
                         .validator(directory_validator)
-                        .help("Working directory with worktodo.txt/worktodo.ini and results.txt"),
+                        .help("Working directory with worktodo.txt/worktodo.ini and results.txt")
                 )
                 .arg(
                     Arg::with_name("num-cache")
@@ -360,7 +360,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .value_name("NUM_CACHE")
                         .default_value("1")
                         .validator(numeric_validator)
-                        .help("Number of assignments to cache"),
+                        .help("Number of assignments to cache")
                 )
                 .arg(
                     Arg::with_name("timeout")
@@ -372,13 +372,13 @@ pub fn request_from_args() -> Result<Options, String> {
                         .validator(numeric_validator)
                         .help(
                             "Seconds to wait between network updates. Use 0 for a single update \
-                                without looping.",
-                        ),
+                                without looping."
+                        )
                 )
                 .group(
                     ArgGroup::with_name("general options")
                         .args(&["work-directory", "num-cache", "timeout"])
-                        .multiple(true),
+                        .multiple(true)
                 )
                 .arg(
                     Arg::with_name("gpu72-username")
@@ -387,7 +387,9 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("USERNAME")
                         .validator(gpu72_username_validator)
-                        .help("GPU to 72 username"),
+                        .help("GPU to 72 username")
+                        .required_unless("gpu72-username-file")
+                        .conflicts_with("gpu72-username-file")
                 )
                 .arg(
                     Arg::with_name("gpu72-username-file")
@@ -396,13 +398,9 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
-                        .help("Path to file containing GPU to 72 username"),
-                )
-                .group(
-                    ArgGroup::with_name("gpu72-user")
-                        .args(&["gpu72-username", "gpu72-username-file"])
-                        .multiple(false)
-                        .required(true)
+                        .help("Path to file containing GPU to 72 username")
+                        .required_unless("gpu72-username")
+                        .conflicts_with("gpu72-username")
                 )
                 .arg(
                     Arg::with_name("gpu72-password")
@@ -410,7 +408,9 @@ pub fn request_from_args() -> Result<Options, String> {
                         .takes_value(true)
                         .number_of_values(1)
                         .value_name("PASSWORD")
-                        .help("GPU to 72 password"),
+                        .help("GPU to 72 password")
+                        .required_unless("gpu72-password-file")
+                        .conflicts_with("gpu72-password-file")
                 )
                 .arg(
                     Arg::with_name("gpu72-password-file")
@@ -419,20 +419,9 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
-                        .help("Path to file containing GPU to 72 password"),
-                )
-                .group(
-                    ArgGroup::with_name("gpu72-pass")
-                        .args(&["gpu72-password", "gpu72-password-file"])
-                        .multiple(false)
-                        .required(true),
-                )
-                .group(
-                    ArgGroup::with_name("gpu72-credentials")
-                        .args(&["gpu72-user", "gpu72-pass"])
-                        .multiple(true)
-                        .required(true)
-                        .requires_all(&["gpu72-user", "gpu72-pass"]),
+                        .help("Path to file containing GPU to 72 password")
+                        .required_unless("gpu72-password")
+                        .conflicts_with("gpu72-password")
                 )
                 .arg(
                     Arg::with_name("p95-username")
@@ -441,7 +430,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("USERNAME")
                         .validator(p95_username_validator)
-                        .help("Primenet username"),
+                        .help("Primenet username")
                 )
                 .arg(
                     Arg::with_name("p95-username-file")
@@ -450,11 +439,11 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
-                        .help("Path to file containing Primenet username"),
+                        .help("Path to file containing Primenet username")
                 )
                 .group(
                     ArgGroup::with_name("p95-user")
-                        .args(&["p95-username", "p95-password"])
+                        .args(&["p95-username", "p95-username-file"])
                         .multiple(false)
                 )
                 .arg(
@@ -463,7 +452,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .takes_value(true)
                         .number_of_values(1)
                         .value_name("PASSWORD")
-                        .help("Primenet password"),
+                        .help("Primenet password")
                 )
                 .arg(
                     Arg::with_name("p95-password-file")
@@ -472,7 +461,7 @@ pub fn request_from_args() -> Result<Options, String> {
                         .number_of_values(1)
                         .value_name("FILE_PATH")
                         .validator(file_validator)
-                        .help("Path to file containing Primenet password"),
+                        .help("Path to file containing Primenet password")
                 )
                 .group(
                     ArgGroup::with_name("p95-pass")
@@ -483,143 +472,115 @@ pub fn request_from_args() -> Result<Options, String> {
                     ArgGroup::with_name("p95-credentials")
                         .args(&["p95-user", "p95-pass"])
                         .multiple(true)
-                        .requires_all(&["p95-user", "p95-pass"]),
+                        .requires_all(&["p95-user", "p95-pass"])
                 )
                 .arg(
                     Arg::with_name("gpu72-fallback")
                         .long("gpu72-fallback")
                         .help("Fall back to Primenet if requests to GPU to 72 fail or it has no \
                             work")
-                        .requires("p95-credentials"),
+                        .requires("p95-credentials")
                 )
                 .arg(
-                    Arg::with_name("gpu72-lucas-lehmer-trial-factor")
-                        .visible_alias("gpu72-lltf")
-                        .long("gpu72-lucas-lehmer-trial-factor")
+                    Arg::with_name("lucas-lehmer-trial-factor")
+                        .visible_alias("lltf")
+                        .long("lucas-lehmer-trial-factor")
                         .help("Request LL trial factoring work from GPU to 72")
+                        .required_unless_one(&GPU72LLTF_LIST)
+                        .conflicts_with_all(&GPU72LLTF_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-double-check-trial-factor")
-                        .visible_alias("gpu72-dctf")
-                        .long("gpu72-double-check-trial-factor")
+                    Arg::with_name("double-check-trial-factor")
+                        .visible_alias("dctf")
+                        .long("double-check-trial-factor")
                         .help("Request double-check trial factoring work from GPU to 72")
+                        .required_unless_one(&GPU72DCTF_LIST)
+                        .conflicts_with_all(&GPU72DCTF_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-lucas-lehmer-p1")
-                        .visible_alias("gpu72-llp1")
-                        .long("gpu72-lucas-lehmer-p1")
+                    Arg::with_name("lucas-lehmer-p1")
+                        .visible_alias("llp1")
+                        .long("lucas-lehmer-p1")
                         .help("Request LL P-1 work from GPU to 72")
-                )
-                .group(
-                    ArgGroup::with_name("gpu72-worktype-require-opts")
-                        .args(&[
-                            "gpu72-lucas-lehmer-trial-factor",
-                            "gpu72-double-check-trial-factor",
-                            "gpu72-lucas-lehmer-p1",
-                        ])
-                        .multiple(false)
-                        .required(true)
-                )
-                .group(
-                    ArgGroup::with_name("gpu72-worktypes")
-                        .args(&["gpu72-worktype-require-opts", "gpu72-double-check-p1"])
-                        .multiple(false)
+                        .required_unless_one(&GPU72LLP1_LIST)
+                        .conflicts_with_all(&GPU72LLP1_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-what-makes-most-sense")
-                        .visible_alias("gpu72-wmms")
-                        .long("gpu72-what-makes-most-sense")
+                    Arg::with_name("what-makes-most-sense")
+                        .visible_alias("wmms")
+                        .long("what-makes-most-sense")
                         .help("Ask GPU to 72 to assign whatever makes most sense.")
-                        .conflicts_with("gpu72-double-check-p1")
+                        .required_unless_one(&GPU72WMS_LIST)
+                        .conflicts_with_all(&GPU72WMS_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-lowest-trial-factor-level")
-                        .visible_alias("gpu72-ltfl")
-                        .long("gpu72-lowest-trial-factor-level")
+                    Arg::with_name("lowest-trial-factor-level")
+                        .visible_alias("ltfl")
+                        .long("lowest-trial-factor-level")
                         .help("Request work of the lowest trial factoring level from GPU to 72")
-                        .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
+                        .required_unless_one(&GPU72LTFL_LIST)
+                        .conflicts_with_all(&GPU72LTFL_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-highest-trial-factor-level")
-                        .visible_alias("gpu72-htfl")
-                        .long("gpu72-highest-trial-factor-level")
+                    Arg::with_name("highest-trial-factor-level")
+                        .visible_alias("htfl")
+                        .long("highest-trial-factor-level")
                         .help("Request work of the highest trial factoring level from GPU to 72")
-                        .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
+                        .required_unless_one(&GPU72HTFL_LIST)
+                        .conflicts_with_all(&GPU72HTFL_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-lowest-exponent")
-                        .visible_alias("gpu72-le")
-                        .long("gpu72-lowest-exponent")
+                    Arg::with_name("lowest-exponent")
+                        .visible_alias("le")
+                        .long("lowest-exponent")
                         .help("Request the lowest exponent for the selected work type from GPU \
                             to 72")
-                        .conflicts_with("gpu72-double-check-p1")
+                        .required_unless_one(&GPU72LE_LIST)
+                        .conflicts_with_all(&GPU72LE_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-oldest-exponent")
-                        .visible_alias("gpu72-oe")
-                        .long("gpu72-oldest-exponent")
+                    Arg::with_name("oldest-exponent")
+                        .visible_alias("oe")
+                        .long("oldest-exponent")
                         .help("Request the oldest exponent for the selected work type from GPU \
                             to 72")
-                        .conflicts_with("gpu72-double-check-p1")
+                        .required_unless_one(&GPU72OE_LIST)
+                        .conflicts_with_all(&GPU72OE_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-double-check-already-done")
-                        .visible_alias("gpu72-dcad")
-                        .long("gpu72-double-check-already-done")
+                    Arg::with_name("double-check-already-done")
+                        .visible_alias("dcad")
+                        .long("double-check-already-done")
                         .help(
                             "Request double-check trial factoring work where a double check has \
                             already been done from GPU to 72"
                         )
-                        .conflicts_with_all(&[
-                            "gpu72-lucas-lehmer-trial-factor",
-                            "gpu72-lucas-lehmer-p1",
-                            "gpu72-double-check-p1",
-                        ])
+                        .required_unless_one(&GPU72DCAD_LIST)
+                        .conflicts_with_all(&GPU72DCAD_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-lone-mersenne-hunters-bit-first")
-                        .visible_alias("gpu72-lmh-bf")
-                        .long("gpu72-lone-mersenne-hunters-bit-first")
+                    Arg::with_name("lone-mersenne-hunters-bit-first")
+                        .visible_alias("lmh-bf")
+                        .long("lone-mersenne-hunters-bit-first")
                         .help("Request LMH bit-first work from GPU to 72")
-                        .conflicts_with_all(&[
-                            "gpu72-double-check-trial-factor",
-                            "gpu72-lucas-lehmer-p1",
-                            "gpu72-double-check-p1",
-                        ])
+                        .required_unless_one(&GPU72LMHBF_LIST)
+                        .conflicts_with_all(&GPU72LMHBF_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-lone-mersenne-hunters-depth-first")
-                        .visible_alias("gpu72-lmh-df")
-                        .long("gpu72-lone-mersenne-hunters-depth-first")
+                    Arg::with_name("lone-mersenne-hunters-depth-first")
+                        .visible_alias("lmh-df")
+                        .long("lone-mersenne-hunters-depth-first")
                         .help("Request LMH depth-first work from GPU to 72")
-                        .conflicts_with_all(&[
-                            "gpu72-double-check-trial-factor",
-                            "gpu72-lucas-lehmer-p1",
-                            "gpu72-double-check-p1",
-                        ])
+                        .required_unless_one(&GPU72LMHDF_LIST)
+                        .conflicts_with_all(&GPU72LMHDF_LIST)
                 )
                 .arg(
-                    Arg::with_name("gpu72-let-gpu72-decide")
-                        .visible_alias("gpu72-lgpu72d")
-                        .long("gpu72-let-gpu72-decide")
+                    Arg::with_name("let-gpu72-decide")
+                        .visible_alias("lgpu72d")
+                        .long("let-decide")
                         .help("Let GPU to 72 decide what type of work to do.")
-                        .conflicts_with_all(&["gpu72-lucas-lehmer-p1", "gpu72-double-check-p1"])
-                )
-                .group(
-                    ArgGroup::with_name("gpu72-workopts")
-                        .args(&[
-                            "gpu72-what-makes-sense",
-                            "gpu72-lowest-trial-factor-level",
-                            "gpu72-highest-trial-factor-level",
-                            "gpu72-lowest-exponent",
-                            "gpu72-oldest-exponent",
-                            "gpu72-double-check-already-done",
-                            "gpu72-lone-mersenne-hunters-bit-first",
-                            "gpu72-lone-mersenne-hunters-depth-first",
-                            "gpu72-let-gpu72-decide"
-                        ])
-                        .multiple(false)
-                        .required(true)
+                        .required_unless_one(&GPU72LGPU72D_LIST)
+                        .conflicts_with_all(&GPU72LGPU72D_LIST)
                 )
         ).try_get_matches().map_err(|e| format!("{}", e))?;
     if let Some(matches) = matches.subcommand_matches("gpu72") {
@@ -690,28 +651,28 @@ pub fn request_from_args() -> Result<Options, String> {
         };
         let work_type = map_matches!(
             matches,
-            "gpu72-lucas-lehmer-trial-factor" => Gpu72WorkType::LucasLehmerTrialFactor {
-                "gpu72-what-makes-sense" -> Gpu72LLTFWorkOption::WhatMakesSense;
-                "gpu72-lowest-trial-factor-level" -> Gpu72LLTFWorkOption::LowestTrialFactorLevel;
-                "gpu72-highest-trial-factor-level" -> Gpu72LLTFWorkOption::HighestTrialFactorLevel;
-                "gpu72-lowest-exponent" -> Gpu72LLTFWorkOption::LowestExponent;
-                "gpu72-oldest-exponent" -> Gpu72LLTFWorkOption::OldestExponent;
-                "gpu72-lone-mersenne-hunters-bit-first" -> Gpu72LLTFWorkOption::LmhBitFirst;
-                "gpu72-lone-mersenne-hunters-depth-first" -> Gpu72LLTFWorkOption::LmhDepthFirst;
+            "lucas-lehmer-trial-factor" => Gpu72WorkType::LucasLehmerTrialFactor {
+                "what-makes-sense" -> Gpu72LLTFWorkOption::WhatMakesSense;
+                "lowest-trial-factor-level" -> Gpu72LLTFWorkOption::LowestTrialFactorLevel;
+                "highest-trial-factor-level" -> Gpu72LLTFWorkOption::HighestTrialFactorLevel;
+                "lowest-exponent" -> Gpu72LLTFWorkOption::LowestExponent;
+                "oldest-exponent" -> Gpu72LLTFWorkOption::OldestExponent;
+                "lone-mersenne-hunters-bit-first" -> Gpu72LLTFWorkOption::LmhBitFirst;
+                "lone-mersenne-hunters-depth-first" -> Gpu72LLTFWorkOption::LmhDepthFirst;
                 _ -> Gpu72LLTFWorkOption::LetGpu72Decide;
             }
-            "gpu72-double-check-trial-factor" => Gpu72WorkType::DoubleCheckTrialFactor {
-                "gpu72-what-makes-sense" -> Gpu72DCTFWorkOption::WhatMakesSense;
-                "gpu72-lowest-trial-factor-level" -> Gpu72DCTFWorkOption::LowestTrialFactorLevel;
-                "gpu72-highest-trial-factor-level" -> Gpu72DCTFWorkOption::HighestTrialFactorLevel;
-                "gpu72-lowest-exponent" -> Gpu72DCTFWorkOption::LowestExponent;
-                "gpu72-oldest-exponent" -> Gpu72DCTFWorkOption::OldestExponent;
-                "gpu72-double-check-already-done" -> Gpu72DCTFWorkOption::DoubleCheckAlreadyDone;
+            "double-check-trial-factor" => Gpu72WorkType::DoubleCheckTrialFactor {
+                "what-makes-sense" -> Gpu72DCTFWorkOption::WhatMakesSense;
+                "lowest-trial-factor-level" -> Gpu72DCTFWorkOption::LowestTrialFactorLevel;
+                "highest-trial-factor-level" -> Gpu72DCTFWorkOption::HighestTrialFactorLevel;
+                "lowest-exponent" -> Gpu72DCTFWorkOption::LowestExponent;
+                "oldest-exponent" -> Gpu72DCTFWorkOption::OldestExponent;
+                "double-check-already-done" -> Gpu72DCTFWorkOption::DoubleCheckAlreadyDone;
                 _ -> Gpu72DCTFWorkOption::LetGpu72Decide;
             }
             _ => Gpu72WorkType::LucasLehmerP1 {
-                "gpu72-lowest-exponent" -> Gpu72LLP1WorkOption::LowestExponent;
-                "gpu72-oldest-exponent" -> Gpu72LLP1WorkOption::OldestExponent;
+                "lowest-exponent" -> Gpu72LLP1WorkOption::LowestExponent;
+                "oldest-exponent" -> Gpu72LLP1WorkOption::OldestExponent;
                 _ -> Gpu72LLP1WorkOption::WhatMakesSense;
             }
         );
