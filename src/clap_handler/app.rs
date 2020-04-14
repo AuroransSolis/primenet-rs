@@ -310,7 +310,9 @@ pub fn request_from_args() -> Result<Options, String> {
                     Arg::with_name("double-check-prp-on-mersenne-cofactors")
                         .long("double-check-prp-on-mersenne-cofactors")
                         .visible_alias("dcprpomc")
-                        .help("Request double-checks of PRP tests on Mersenne cofactors from Primenet")
+                        .help(
+                            "Request double-checks of PRP tests on Mersenne cofactors from Primenet"
+                        )
                 )
                 .group(
                     ArgGroup::with_name("worktype")
@@ -475,11 +477,14 @@ pub fn request_from_args() -> Result<Options, String> {
                         .requires_all(&["p95-user", "p95-pass"])
                 )
                 .arg(
-                    Arg::with_name("gpu72-fallback")
-                        .long("gpu72-fallback")
-                        .help("Fall back to Primenet if requests to GPU to 72 fail or it has no \
-                            work")
-                        .requires("p95-credentials")
+                    Arg::with_name("p95-fallback")
+                        .long("p95-fallback")
+                        .help(
+                            "Fall back to Primenet if requests to GPU to 72 fail or it has no \
+                            work. Always fetches trial factor work, regardless of GPU to 72 work \
+                            type and options."
+                        )
+                        .requires_all(&["p95-credentials", "p95-fallback-type"])
                 )
                 .arg(
                     Arg::with_name("lucas-lehmer-trial-factor")
@@ -577,7 +582,7 @@ pub fn request_from_args() -> Result<Options, String> {
                 .arg(
                     Arg::with_name("let-gpu72-decide")
                         .visible_alias("lgpu72d")
-                        .long("let-decide")
+                        .long("let-gpu72-decide")
                         .help("Let GPU to 72 decide what type of work to do.")
                         .required_unless_one(&GPU72LGPU72D_LIST)
                         .conflicts_with_all(&GPU72LGPU72D_LIST)
