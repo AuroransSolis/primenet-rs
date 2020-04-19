@@ -7,7 +7,7 @@ use crate::{
 };
 use regex::RegexBuilder;
 use reqwest::blocking::{Client, ClientBuilder};
-use std::fs::{remove_file, OpenOptions};
+use std::fs::{remove_file, File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::str::from_utf8;
@@ -19,8 +19,9 @@ const WVR: &str = r"((DoubleCheck|Test|PRP)\s*=\s*([0-9A-F]){32}(,[0-9]+){3}((,-
 
 const P95_LOGIN_ADDR: &str = "https://www.mersenne.org/";
 const P95_REQUEST_ADDR: &str = "https://www.mersenne.org/manual_assignment/?";
+const P95_REPORT_ADDR: &str = "https://www.mersenne.org/manual_result/?";
 
-fn primenet_login(client: &Client, username: &str, password: &str) -> Result<(), String> {
+pub fn primenet_login(client: &Client, username: &str, password: &str) -> Result<(), String> {
     let result = client
         .post(P95_LOGIN_ADDR)
         .form(&[("user_login", username), ("user_password", password)])
@@ -162,6 +163,114 @@ fn primenet_request(
     }
 }
 
+fn writeback_on_failure(results_bufwriter: &mut BufWriter<File>, unsent_result: String) {
+    // If submission fails, write the result back to the results file.
+}
+
+pub fn primenet_submit(
+    client: &Client,
+    worktodo_path: &Path,
+    worktodo_lock_path: &Path,
+    results_path: &Path,
+    results_lock_path: &Path,
+    results_sent_path: &Path,
+    results_sent_lock_path: &Path,
+) -> Result<(), String> {
+    let worktodo_contents = read_list_lock(worktodo_path, worktodo_lock_path)
+        .map_err(|e| format!("Could not lock and read worktodo file. Error: {}", e))?;
+    let mut results_contents = read_list_lock(results_path, results_lock_path)
+        .map_err(|e| format!("Could not lock and read results file. Error: {}", e))?;
+    lock_file(results_sent_lock_path)?;
+    let mut results_file = BufWriter::new(
+        OpenOptions::new()
+            .write(true)
+            .append(false)
+            .open(results_path)
+            .map_err(|e| {
+                format!(
+                    "Failed to open results file with write privileges. Error: {}",
+                    e
+                )
+            })?,
+    );
+    let mut results_sent_file = BufWriter::new(
+        OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(results_sent_path)
+            .map_err(|e| {
+                format!(
+                    "Failed to open sent results file with write privileges. Error: {}",
+                    e
+                )
+            })?,
+    );
+    let mut collisions = Vec::new();
+    // Only jobs that are completed are allowed to be submitted.
+    // Could handle this with hashset collisions, but then I have to sort out ordering when writing
+    // back to the file on submission errors. Resolve this.
+    for job in &worktodo_contents {
+        if let Some(pos) = results_contents.iter().position(|j| j == job) {
+            collisions.push(results_contents.remove(pos));
+        }
+    }
+    println!("Found the following incomplete jobs in results.txt:");
+    for collision in collisions {
+        println!("    {}", collision);
+    }
+    if results_contents.len() > 0 {
+        while let Some(completed_job) = results_contents.pop() {
+            let response_text = client
+                .post(P95_REPORT_ADDR)
+                .form(&[("data", "completed_job")])
+                .send()
+                .map_err(|e| format!("Failed to send work submission to primenet. Error: {}", e))?
+                .text()
+                .map_err(|e| {
+                    format!(
+                        "Failed to read response text from work submission to Primenet. Error: {}",
+                        e
+                    )
+                })?;
+            if response_text.contains("Error") {
+                let e_start = response_text.find("Error").unwrap();
+                let e_end = response_text[e_start..].find("</div>").unwrap();
+                println!(
+                    "Submission failed. Error message from Primenet: {}",
+                    &response_text[e_start..e_end]
+                );
+                writeback_on_failure(&mut results_file, completed_job);
+            } else if response_text.contains("Accepted") {
+                // Submission was accepted by Primenet - write result to results.sent.txt
+            } else {
+                // Unknown failure case - write failed submission back to results.txt
+            }
+        }
+    }
+    unlock_file(worktodo_lock_path).map_err(|e| {
+        format!(
+            "Could not remove lockfile {}. Error: {}",
+            worktodo_lock_path.display(),
+            e
+        )
+    })?;
+    unlock_file(results_lock_path).map_err(|e| {
+        format!(
+            "Could not remove lockfile {}. Error: {}",
+            results_lock_path.display(),
+            e
+        )
+    })?;
+    unlock_file(results_sent_lock_path).map_err(|e| {
+        format!(
+            "Could not remove lockfile {}. Error: {}",
+            results_sent_lock_path.display(),
+            e
+        )
+    })?;
+    Ok(())
+}
+
 pub fn primenet_runtime(primenet_options: PrimenetOptions) -> Result<(), String> {
     let PrimenetOptions {
         credentials: (username, password),
@@ -182,20 +291,17 @@ pub fn primenet_runtime(primenet_options: PrimenetOptions) -> Result<(), String>
     let worktodo_txt_path = Path::new(&work_directory).join(Path::new("worktodo.txt"));
     let worktodo_ini_path = Path::new(&work_directory).join(Path::new("worktodo.ini"));
     let (worktodo_path, worktodo_lock_path) = if worktodo_txt_path.exists() {
-        (
-            worktodo_txt_path,
-            Path::new(&work_directory).join(Path::new("worktodo.txt.lck")),
-        )
+        (worktodo_txt_path, worktodo_txt_path.join(".lck"))
     } else {
-        (
-            worktodo_ini_path,
-            Path::new(&work_directory).join(Path::new("worktodo.ini.lck")),
-        )
+        (worktodo_ini_path, worktodo_ini_path.join(".lck"))
     };
-    let results = Path::new(&work_directory).join(Path::new("results.txt"));
+    let results_path = Path::new(&work_directory).join(Path::new("results.txt"));
+    let results_lock_path = results_path.join(".lck");
+    let results_sent_path = Path::new(&work_directory).join(Path::new("results.sent"));
+    let results_sent_lock_path = results_sent_path.join(".lck");
     println!("Using worktodo path: {}", worktodo_path.display());
     println!("Using worktodo_lock path: {}", worktodo_lock_path.display());
-    println!("Using results path: {}", results.display());
+    println!("Using results path: {}", results_path.display());
     if timeout == 0 {
         primenet_request(
             &client,
@@ -203,6 +309,15 @@ pub fn primenet_runtime(primenet_options: PrimenetOptions) -> Result<(), String>
             &worktodo_path,
             &worktodo_lock_path,
             work_type,
+        )?;
+        primenet_submit(
+            &client,
+            &worktodo_path,
+            &worktodo_lock_path,
+            &results_path,
+            &results_lock_path,
+            &results_sent_path,
+            &results_sent_lock_path,
         )?;
     } else {
         loop {
@@ -218,9 +333,27 @@ pub fn primenet_runtime(primenet_options: PrimenetOptions) -> Result<(), String>
             } else {
                 println!("Successfully requested and cached jobs.");
             }
+            if let Err(e) = primenet_submit(
+                &client,
+                &worktodo_path,
+                &worktodo_lock_path,
+                &results_path,
+                &results_lock_path,
+                &results_sent_path,
+                &results_sent_lock_path,
+            ) {
+                println!("{}", e);
+            } else {
+                println!(
+                    "Successfully submitted cached results to Primenet. Submitted results can be"
+                );
+                println!("found in $WORDKDIR/results.sent until next submission.");
+            }
             let sleep_duration = Duration::from_secs(timeout as u64) - start.elapsed();
             sleep(sleep_duration);
         }
     }
     Ok(())
 }
+
+pub fn primenet_cleanup(primenet_options: PrimenetOptions) {}
