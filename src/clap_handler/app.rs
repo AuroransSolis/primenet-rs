@@ -7,30 +7,30 @@ use std::env::current_dir;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct GeneralOptions {
     pub work_directory: String,
     pub num_cache: usize,
     pub timeout: usize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PrimenetOptions {
     pub credentials: (String, String),
     pub work_type: PrimenetWorkType,
     pub general_options: GeneralOptions,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Gpu72Options {
     pub primenet_credentials: Option<(String, String)>,
     pub gpu72_credentials: (String, String),
-    pub fallback: bool,
     pub work_type: Gpu72WorkType,
+    pub max_exp: u8,
     pub general_options: GeneralOptions,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Options {
     Primenet(PrimenetOptions),
     Gpu72(Gpu72Options),
@@ -487,6 +487,17 @@ pub fn request_from_args() -> Result<Options, String> {
                         .requires_all(&["p95-credentials", "p95-fallback-type"])
                 )
                 .arg(
+                    Arg::with_name("max-exponent")
+                        .long("max-exponent")
+                        .visible_alias("max-exp")
+                        .takes_value(true)
+                        .number_of_values(1)
+                        .value_name("NUM")
+                        .validator(max_exp_validator)
+                        .default_value("72")
+                        .help("Upper limit of exponent")
+                )
+                .arg(
                     Arg::with_name("lucas-lehmer-trial-factor")
                         .visible_alias("lltf")
                         .long("lucas-lehmer-trial-factor")
@@ -611,8 +622,7 @@ pub fn request_from_args() -> Result<Options, String> {
             let password = password.trim().to_string();
             (username, password)
         };
-        let fallback = matches.is_present("gpu72-fallback");
-        let primenet_credentials = if fallback {
+        let primenet_credentials = if matches.is_present("p95-fallback") {
             if matches.is_present("p95-userpass") {
                 Some((
                     matches.value_of("p95-username").unwrap().to_string(),
@@ -638,6 +648,11 @@ pub fn request_from_args() -> Result<Options, String> {
         } else {
             None
         };
+        let max_exp = matches
+            .value_of("max-exponent")
+            .unwrap()
+            .parse::<u8>()
+            .unwrap();
         let work_directory = matches.value_of("work-directory").unwrap().to_string();
         let num_cache = matches
             .value_of("num-cache")
@@ -684,8 +699,8 @@ pub fn request_from_args() -> Result<Options, String> {
         Ok(Options::Gpu72(Gpu72Options {
             primenet_credentials,
             gpu72_credentials,
-            fallback,
             work_type,
+            max_exp,
             general_options,
         }))
     } else if let Some(matches) = matches.subcommand_matches("p95") {
