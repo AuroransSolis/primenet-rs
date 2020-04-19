@@ -55,6 +55,14 @@ pub fn directory_validator(s: String) -> Result<(), String> {
     }
 }
 
+pub fn max_exp_validator(s: String) -> Result<(), String> {
+    match s.parse::<u8>() {
+        Ok(n) if n > 70 => Ok(()),
+        Ok(_) => Err("The minimum value for max-exponent is 70".to_string()),
+        Err(e) => Err(format!("Could not parse input '{}' as u8. Error: {}", s, e)),
+    }
+}
+
 pub fn numeric_validator(s: String) -> Result<(), String> {
     if s.chars().all(|c| c.is_ascii_digit()) {
         s.parse::<usize>()
